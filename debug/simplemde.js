@@ -5,119 +5,8 @@
  * @license MIT
  */
 (function(f){if(typeof exports==="object"&&typeof module!=="undefined"){module.exports=f()}else if(typeof define==="function"&&define.amd){define([],f)}else{var g;if(typeof window!=="undefined"){g=window}else if(typeof global!=="undefined"){g=global}else if(typeof self!=="undefined"){g=self}else{g=this}g.SimpleMDE = f()}})(function(){var define,module,exports;return (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
-'use strict'
-
-exports.toByteArray = toByteArray
-exports.fromByteArray = fromByteArray
-
-var lookup = []
-var revLookup = []
-var Arr = typeof Uint8Array !== 'undefined' ? Uint8Array : Array
-
-function init () {
-  var code = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
-  for (var i = 0, len = code.length; i < len; ++i) {
-    lookup[i] = code[i]
-    revLookup[code.charCodeAt(i)] = i
-  }
-
-  revLookup['-'.charCodeAt(0)] = 62
-  revLookup['_'.charCodeAt(0)] = 63
-}
-
-init()
-
-function toByteArray (b64) {
-  var i, j, l, tmp, placeHolders, arr
-  var len = b64.length
-
-  if (len % 4 > 0) {
-    throw new Error('Invalid string. Length must be a multiple of 4')
-  }
-
-  // the number of equal signs (place holders)
-  // if there are two placeholders, than the two characters before it
-  // represent one byte
-  // if there is only one, then the three characters before it represent 2 bytes
-  // this is just a cheap hack to not do indexOf twice
-  placeHolders = b64[len - 2] === '=' ? 2 : b64[len - 1] === '=' ? 1 : 0
-
-  // base64 is 4/3 + up to two characters of the original data
-  arr = new Arr(len * 3 / 4 - placeHolders)
-
-  // if there are placeholders, only get up to the last complete 4 chars
-  l = placeHolders > 0 ? len - 4 : len
-
-  var L = 0
-
-  for (i = 0, j = 0; i < l; i += 4, j += 3) {
-    tmp = (revLookup[b64.charCodeAt(i)] << 18) | (revLookup[b64.charCodeAt(i + 1)] << 12) | (revLookup[b64.charCodeAt(i + 2)] << 6) | revLookup[b64.charCodeAt(i + 3)]
-    arr[L++] = (tmp >> 16) & 0xFF
-    arr[L++] = (tmp >> 8) & 0xFF
-    arr[L++] = tmp & 0xFF
-  }
-
-  if (placeHolders === 2) {
-    tmp = (revLookup[b64.charCodeAt(i)] << 2) | (revLookup[b64.charCodeAt(i + 1)] >> 4)
-    arr[L++] = tmp & 0xFF
-  } else if (placeHolders === 1) {
-    tmp = (revLookup[b64.charCodeAt(i)] << 10) | (revLookup[b64.charCodeAt(i + 1)] << 4) | (revLookup[b64.charCodeAt(i + 2)] >> 2)
-    arr[L++] = (tmp >> 8) & 0xFF
-    arr[L++] = tmp & 0xFF
-  }
-
-  return arr
-}
-
-function tripletToBase64 (num) {
-  return lookup[num >> 18 & 0x3F] + lookup[num >> 12 & 0x3F] + lookup[num >> 6 & 0x3F] + lookup[num & 0x3F]
-}
-
-function encodeChunk (uint8, start, end) {
-  var tmp
-  var output = []
-  for (var i = start; i < end; i += 3) {
-    tmp = (uint8[i] << 16) + (uint8[i + 1] << 8) + (uint8[i + 2])
-    output.push(tripletToBase64(tmp))
-  }
-  return output.join('')
-}
-
-function fromByteArray (uint8) {
-  var tmp
-  var len = uint8.length
-  var extraBytes = len % 3 // if we have 1 byte left, pad 2 bytes
-  var output = ''
-  var parts = []
-  var maxChunkLength = 16383 // must be multiple of 3
-
-  // go through the array every three bytes, we'll deal with trailing stuff later
-  for (var i = 0, len2 = len - extraBytes; i < len2; i += maxChunkLength) {
-    parts.push(encodeChunk(uint8, i, (i + maxChunkLength) > len2 ? len2 : (i + maxChunkLength)))
-  }
-
-  // pad the end with zeros, but make sure to not forget the extra bytes
-  if (extraBytes === 1) {
-    tmp = uint8[len - 1]
-    output += lookup[tmp >> 2]
-    output += lookup[(tmp << 4) & 0x3F]
-    output += '=='
-  } else if (extraBytes === 2) {
-    tmp = (uint8[len - 2] << 8) + (uint8[len - 1])
-    output += lookup[tmp >> 10]
-    output += lookup[(tmp >> 4) & 0x3F]
-    output += lookup[(tmp << 2) & 0x3F]
-    output += '='
-  }
-
-  parts.push(output)
-
-  return parts.join('')
-}
 
 },{}],2:[function(require,module,exports){
-
-},{}],3:[function(require,module,exports){
 (function (global){
 /*!
  * The buffer module from node.js, for the browser.
@@ -173,7 +62,7 @@ exports.kMaxLength = kMaxLength()
 function typedArraySupport () {
   try {
     var arr = new Uint8Array(1)
-    arr.foo = function () { return 42 }
+    arr.__proto__ = {__proto__: Uint8Array.prototype, foo: function () { return 42 }}
     return arr.foo() === 42 && // typed array instances can be augmented
         typeof arr.subarray === 'function' && // chrome 9-10 lack `subarray`
         arr.subarray(1, 1).byteLength === 0 // ie10 has broken `subarray`
@@ -286,6 +175,8 @@ if (Buffer.TYPED_ARRAY_SUPPORT) {
 function assertSize (size) {
   if (typeof size !== 'number') {
     throw new TypeError('"size" argument must be a number')
+  } else if (size < 0) {
+    throw new RangeError('"size" argument must not be negative')
   }
 }
 
@@ -317,7 +208,7 @@ function allocUnsafe (that, size) {
   assertSize(size)
   that = createBuffer(that, size < 0 ? 0 : checked(size) | 0)
   if (!Buffer.TYPED_ARRAY_SUPPORT) {
-    for (var i = 0; i < size; i++) {
+    for (var i = 0; i < size; ++i) {
       that[i] = 0
     }
   }
@@ -349,12 +240,20 @@ function fromString (that, string, encoding) {
   var length = byteLength(string, encoding) | 0
   that = createBuffer(that, length)
 
-  that.write(string, encoding)
+  var actual = that.write(string, encoding)
+
+  if (actual !== length) {
+    // Writing a hex string, for example, that contains invalid characters will
+    // cause everything after the first invalid character to be ignored. (e.g.
+    // 'abxxcd' will be treated as 'ab')
+    that = that.slice(0, actual)
+  }
+
   return that
 }
 
 function fromArrayLike (that, array) {
-  var length = checked(array.length) | 0
+  var length = array.length < 0 ? 0 : checked(array.length) | 0
   that = createBuffer(that, length)
   for (var i = 0; i < length; i += 1) {
     that[i] = array[i] & 255
@@ -373,7 +272,9 @@ function fromArrayBuffer (that, array, byteOffset, length) {
     throw new RangeError('\'length\' is out of bounds')
   }
 
-  if (length === undefined) {
+  if (byteOffset === undefined && length === undefined) {
+    array = new Uint8Array(array)
+  } else if (length === undefined) {
     array = new Uint8Array(array, byteOffset)
   } else {
     array = new Uint8Array(array, byteOffset, length)
@@ -421,7 +322,7 @@ function fromObject (that, obj) {
 }
 
 function checked (length) {
-  // Note: cannot use `length < kMaxLength` here because that fails when
+  // Note: cannot use `length < kMaxLength()` here because that fails when
   // length is NaN (which is otherwise coerced to zero.)
   if (length >= kMaxLength()) {
     throw new RangeError('Attempt to allocate Buffer larger than maximum ' +
@@ -470,9 +371,9 @@ Buffer.isEncoding = function isEncoding (encoding) {
     case 'utf8':
     case 'utf-8':
     case 'ascii':
+    case 'latin1':
     case 'binary':
     case 'base64':
-    case 'raw':
     case 'ucs2':
     case 'ucs-2':
     case 'utf16le':
@@ -495,14 +396,14 @@ Buffer.concat = function concat (list, length) {
   var i
   if (length === undefined) {
     length = 0
-    for (i = 0; i < list.length; i++) {
+    for (i = 0; i < list.length; ++i) {
       length += list[i].length
     }
   }
 
   var buffer = Buffer.allocUnsafe(length)
   var pos = 0
-  for (i = 0; i < list.length; i++) {
+  for (i = 0; i < list.length; ++i) {
     var buf = list[i]
     if (!Buffer.isBuffer(buf)) {
       throw new TypeError('"list" argument must be an Array of Buffers')
@@ -533,10 +434,8 @@ function byteLength (string, encoding) {
   for (;;) {
     switch (encoding) {
       case 'ascii':
+      case 'latin1':
       case 'binary':
-      // Deprecated
-      case 'raw':
-      case 'raws':
         return len
       case 'utf8':
       case 'utf-8':
@@ -609,8 +508,9 @@ function slowToString (encoding, start, end) {
       case 'ascii':
         return asciiSlice(this, start, end)
 
+      case 'latin1':
       case 'binary':
-        return binarySlice(this, start, end)
+        return latin1Slice(this, start, end)
 
       case 'base64':
         return base64Slice(this, start, end)
@@ -658,6 +558,20 @@ Buffer.prototype.swap32 = function swap32 () {
   for (var i = 0; i < len; i += 4) {
     swap(this, i, i + 3)
     swap(this, i + 1, i + 2)
+  }
+  return this
+}
+
+Buffer.prototype.swap64 = function swap64 () {
+  var len = this.length
+  if (len % 8 !== 0) {
+    throw new RangeError('Buffer size must be a multiple of 64-bits')
+  }
+  for (var i = 0; i < len; i += 8) {
+    swap(this, i, i + 7)
+    swap(this, i + 1, i + 6)
+    swap(this, i + 2, i + 5)
+    swap(this, i + 3, i + 4)
   }
   return this
 }
@@ -744,7 +658,73 @@ Buffer.prototype.compare = function compare (target, start, end, thisStart, this
   return 0
 }
 
-function arrayIndexOf (arr, val, byteOffset, encoding) {
+// Finds either the first index of `val` in `buffer` at offset >= `byteOffset`,
+// OR the last index of `val` in `buffer` at offset <= `byteOffset`.
+//
+// Arguments:
+// - buffer - a Buffer to search
+// - val - a string, Buffer, or number
+// - byteOffset - an index into `buffer`; will be clamped to an int32
+// - encoding - an optional encoding, relevant is val is a string
+// - dir - true for indexOf, false for lastIndexOf
+function bidirectionalIndexOf (buffer, val, byteOffset, encoding, dir) {
+  // Empty buffer means no match
+  if (buffer.length === 0) return -1
+
+  // Normalize byteOffset
+  if (typeof byteOffset === 'string') {
+    encoding = byteOffset
+    byteOffset = 0
+  } else if (byteOffset > 0x7fffffff) {
+    byteOffset = 0x7fffffff
+  } else if (byteOffset < -0x80000000) {
+    byteOffset = -0x80000000
+  }
+  byteOffset = +byteOffset  // Coerce to Number.
+  if (isNaN(byteOffset)) {
+    // byteOffset: it it's undefined, null, NaN, "foo", etc, search whole buffer
+    byteOffset = dir ? 0 : (buffer.length - 1)
+  }
+
+  // Normalize byteOffset: negative offsets start from the end of the buffer
+  if (byteOffset < 0) byteOffset = buffer.length + byteOffset
+  if (byteOffset >= buffer.length) {
+    if (dir) return -1
+    else byteOffset = buffer.length - 1
+  } else if (byteOffset < 0) {
+    if (dir) byteOffset = 0
+    else return -1
+  }
+
+  // Normalize val
+  if (typeof val === 'string') {
+    val = Buffer.from(val, encoding)
+  }
+
+  // Finally, search either indexOf (if dir is true) or lastIndexOf
+  if (Buffer.isBuffer(val)) {
+    // Special case: looking for empty string/buffer always fails
+    if (val.length === 0) {
+      return -1
+    }
+    return arrayIndexOf(buffer, val, byteOffset, encoding, dir)
+  } else if (typeof val === 'number') {
+    val = val & 0xFF // Search for a byte value [0-255]
+    if (Buffer.TYPED_ARRAY_SUPPORT &&
+        typeof Uint8Array.prototype.indexOf === 'function') {
+      if (dir) {
+        return Uint8Array.prototype.indexOf.call(buffer, val, byteOffset)
+      } else {
+        return Uint8Array.prototype.lastIndexOf.call(buffer, val, byteOffset)
+      }
+    }
+    return arrayIndexOf(buffer, [ val ], byteOffset, encoding, dir)
+  }
+
+  throw new TypeError('val must be string, number or Buffer')
+}
+
+function arrayIndexOf (arr, val, byteOffset, encoding, dir) {
   var indexSize = 1
   var arrLength = arr.length
   var valLength = val.length
@@ -771,59 +751,45 @@ function arrayIndexOf (arr, val, byteOffset, encoding) {
     }
   }
 
-  var foundIndex = -1
-  for (var i = 0; byteOffset + i < arrLength; i++) {
-    if (read(arr, byteOffset + i) === read(val, foundIndex === -1 ? 0 : i - foundIndex)) {
-      if (foundIndex === -1) foundIndex = i
-      if (i - foundIndex + 1 === valLength) return (byteOffset + foundIndex) * indexSize
-    } else {
-      if (foundIndex !== -1) i -= i - foundIndex
-      foundIndex = -1
+  var i
+  if (dir) {
+    var foundIndex = -1
+    for (i = byteOffset; i < arrLength; i++) {
+      if (read(arr, i) === read(val, foundIndex === -1 ? 0 : i - foundIndex)) {
+        if (foundIndex === -1) foundIndex = i
+        if (i - foundIndex + 1 === valLength) return foundIndex * indexSize
+      } else {
+        if (foundIndex !== -1) i -= i - foundIndex
+        foundIndex = -1
+      }
+    }
+  } else {
+    if (byteOffset + valLength > arrLength) byteOffset = arrLength - valLength
+    for (i = byteOffset; i >= 0; i--) {
+      var found = true
+      for (var j = 0; j < valLength; j++) {
+        if (read(arr, i + j) !== read(val, j)) {
+          found = false
+          break
+        }
+      }
+      if (found) return i
     }
   }
+
   return -1
-}
-
-Buffer.prototype.indexOf = function indexOf (val, byteOffset, encoding) {
-  if (typeof byteOffset === 'string') {
-    encoding = byteOffset
-    byteOffset = 0
-  } else if (byteOffset > 0x7fffffff) {
-    byteOffset = 0x7fffffff
-  } else if (byteOffset < -0x80000000) {
-    byteOffset = -0x80000000
-  }
-  byteOffset >>= 0
-
-  if (this.length === 0) return -1
-  if (byteOffset >= this.length) return -1
-
-  // Negative offsets start from the end of the buffer
-  if (byteOffset < 0) byteOffset = Math.max(this.length + byteOffset, 0)
-
-  if (typeof val === 'string') {
-    val = Buffer.from(val, encoding)
-  }
-
-  if (Buffer.isBuffer(val)) {
-    // special case: looking for empty string/buffer always fails
-    if (val.length === 0) {
-      return -1
-    }
-    return arrayIndexOf(this, val, byteOffset, encoding)
-  }
-  if (typeof val === 'number') {
-    if (Buffer.TYPED_ARRAY_SUPPORT && Uint8Array.prototype.indexOf === 'function') {
-      return Uint8Array.prototype.indexOf.call(this, val, byteOffset)
-    }
-    return arrayIndexOf(this, [ val ], byteOffset, encoding)
-  }
-
-  throw new TypeError('val must be string, number or Buffer')
 }
 
 Buffer.prototype.includes = function includes (val, byteOffset, encoding) {
   return this.indexOf(val, byteOffset, encoding) !== -1
+}
+
+Buffer.prototype.indexOf = function indexOf (val, byteOffset, encoding) {
+  return bidirectionalIndexOf(this, val, byteOffset, encoding, true)
+}
+
+Buffer.prototype.lastIndexOf = function lastIndexOf (val, byteOffset, encoding) {
+  return bidirectionalIndexOf(this, val, byteOffset, encoding, false)
 }
 
 function hexWrite (buf, string, offset, length) {
@@ -840,12 +806,12 @@ function hexWrite (buf, string, offset, length) {
 
   // must be an even number of digits
   var strLen = string.length
-  if (strLen % 2 !== 0) throw new Error('Invalid hex string')
+  if (strLen % 2 !== 0) throw new TypeError('Invalid hex string')
 
   if (length > strLen / 2) {
     length = strLen / 2
   }
-  for (var i = 0; i < length; i++) {
+  for (var i = 0; i < length; ++i) {
     var parsed = parseInt(string.substr(i * 2, 2), 16)
     if (isNaN(parsed)) return i
     buf[offset + i] = parsed
@@ -861,7 +827,7 @@ function asciiWrite (buf, string, offset, length) {
   return blitBuffer(asciiToBytes(string), buf, offset, length)
 }
 
-function binaryWrite (buf, string, offset, length) {
+function latin1Write (buf, string, offset, length) {
   return asciiWrite(buf, string, offset, length)
 }
 
@@ -923,8 +889,9 @@ Buffer.prototype.write = function write (string, offset, length, encoding) {
       case 'ascii':
         return asciiWrite(this, string, offset, length)
 
+      case 'latin1':
       case 'binary':
-        return binaryWrite(this, string, offset, length)
+        return latin1Write(this, string, offset, length)
 
       case 'base64':
         // Warning: maxLength not taken into account in base64Write
@@ -1059,17 +1026,17 @@ function asciiSlice (buf, start, end) {
   var ret = ''
   end = Math.min(buf.length, end)
 
-  for (var i = start; i < end; i++) {
+  for (var i = start; i < end; ++i) {
     ret += String.fromCharCode(buf[i] & 0x7F)
   }
   return ret
 }
 
-function binarySlice (buf, start, end) {
+function latin1Slice (buf, start, end) {
   var ret = ''
   end = Math.min(buf.length, end)
 
-  for (var i = start; i < end; i++) {
+  for (var i = start; i < end; ++i) {
     ret += String.fromCharCode(buf[i])
   }
   return ret
@@ -1082,7 +1049,7 @@ function hexSlice (buf, start, end) {
   if (!end || end < 0 || end > len) end = len
 
   var out = ''
-  for (var i = start; i < end; i++) {
+  for (var i = start; i < end; ++i) {
     out += toHex(buf[i])
   }
   return out
@@ -1125,7 +1092,7 @@ Buffer.prototype.slice = function slice (start, end) {
   } else {
     var sliceLen = end - start
     newBuf = new Buffer(sliceLen, undefined)
-    for (var i = 0; i < sliceLen; i++) {
+    for (var i = 0; i < sliceLen; ++i) {
       newBuf[i] = this[i + start]
     }
   }
@@ -1352,7 +1319,7 @@ Buffer.prototype.writeUInt8 = function writeUInt8 (value, offset, noAssert) {
 
 function objectWriteUInt16 (buf, value, offset, littleEndian) {
   if (value < 0) value = 0xffff + value + 1
-  for (var i = 0, j = Math.min(buf.length - offset, 2); i < j; i++) {
+  for (var i = 0, j = Math.min(buf.length - offset, 2); i < j; ++i) {
     buf[offset + i] = (value & (0xff << (8 * (littleEndian ? i : 1 - i)))) >>>
       (littleEndian ? i : 1 - i) * 8
   }
@@ -1386,7 +1353,7 @@ Buffer.prototype.writeUInt16BE = function writeUInt16BE (value, offset, noAssert
 
 function objectWriteUInt32 (buf, value, offset, littleEndian) {
   if (value < 0) value = 0xffffffff + value + 1
-  for (var i = 0, j = Math.min(buf.length - offset, 4); i < j; i++) {
+  for (var i = 0, j = Math.min(buf.length - offset, 4); i < j; ++i) {
     buf[offset + i] = (value >>> (littleEndian ? i : 3 - i) * 8) & 0xff
   }
 }
@@ -1601,12 +1568,12 @@ Buffer.prototype.copy = function copy (target, targetStart, start, end) {
 
   if (this === target && start < targetStart && targetStart < end) {
     // descending copy from end
-    for (i = len - 1; i >= 0; i--) {
+    for (i = len - 1; i >= 0; --i) {
       target[i + targetStart] = this[i + start]
     }
   } else if (len < 1000 || !Buffer.TYPED_ARRAY_SUPPORT) {
     // ascending copy from start
-    for (i = 0; i < len; i++) {
+    for (i = 0; i < len; ++i) {
       target[i + targetStart] = this[i + start]
     }
   } else {
@@ -1667,7 +1634,7 @@ Buffer.prototype.fill = function fill (val, start, end, encoding) {
 
   var i
   if (typeof val === 'number') {
-    for (i = start; i < end; i++) {
+    for (i = start; i < end; ++i) {
       this[i] = val
     }
   } else {
@@ -1675,7 +1642,7 @@ Buffer.prototype.fill = function fill (val, start, end, encoding) {
       ? val
       : utf8ToBytes(new Buffer(val, encoding).toString())
     var len = bytes.length
-    for (i = 0; i < end - start; i++) {
+    for (i = 0; i < end - start; ++i) {
       this[i + start] = bytes[i % len]
     }
   }
@@ -1717,7 +1684,7 @@ function utf8ToBytes (string, units) {
   var leadSurrogate = null
   var bytes = []
 
-  for (var i = 0; i < length; i++) {
+  for (var i = 0; i < length; ++i) {
     codePoint = string.charCodeAt(i)
 
     // is surrogate component
@@ -1792,7 +1759,7 @@ function utf8ToBytes (string, units) {
 
 function asciiToBytes (str) {
   var byteArray = []
-  for (var i = 0; i < str.length; i++) {
+  for (var i = 0; i < str.length; ++i) {
     // Node's code seems to be doing this and not & 0x7F..
     byteArray.push(str.charCodeAt(i) & 0xFF)
   }
@@ -1802,7 +1769,7 @@ function asciiToBytes (str) {
 function utf16leToBytes (str, units) {
   var c, hi, lo
   var byteArray = []
-  for (var i = 0; i < str.length; i++) {
+  for (var i = 0; i < str.length; ++i) {
     if ((units -= 2) < 0) break
 
     c = str.charCodeAt(i)
@@ -1820,7 +1787,7 @@ function base64ToBytes (str) {
 }
 
 function blitBuffer (src, dst, offset, length) {
-  for (var i = 0; i < length; i++) {
+  for (var i = 0; i < length; ++i) {
     if ((i + offset >= dst.length) || (i >= src.length)) break
     dst[i + offset] = src[i]
   }
@@ -1832,7 +1799,1003 @@ function isnan (val) {
 }
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"base64-js":1,"ieee754":15,"isarray":16}],4:[function(require,module,exports){
+},{"base64-js":3,"ieee754":4,"isarray":5}],3:[function(require,module,exports){
+'use strict'
+
+exports.toByteArray = toByteArray
+exports.fromByteArray = fromByteArray
+
+var lookup = []
+var revLookup = []
+var Arr = typeof Uint8Array !== 'undefined' ? Uint8Array : Array
+
+function init () {
+  var code = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
+  for (var i = 0, len = code.length; i < len; ++i) {
+    lookup[i] = code[i]
+    revLookup[code.charCodeAt(i)] = i
+  }
+
+  revLookup['-'.charCodeAt(0)] = 62
+  revLookup['_'.charCodeAt(0)] = 63
+}
+
+init()
+
+function toByteArray (b64) {
+  var i, j, l, tmp, placeHolders, arr
+  var len = b64.length
+
+  if (len % 4 > 0) {
+    throw new Error('Invalid string. Length must be a multiple of 4')
+  }
+
+  // the number of equal signs (place holders)
+  // if there are two placeholders, than the two characters before it
+  // represent one byte
+  // if there is only one, then the three characters before it represent 2 bytes
+  // this is just a cheap hack to not do indexOf twice
+  placeHolders = b64[len - 2] === '=' ? 2 : b64[len - 1] === '=' ? 1 : 0
+
+  // base64 is 4/3 + up to two characters of the original data
+  arr = new Arr(len * 3 / 4 - placeHolders)
+
+  // if there are placeholders, only get up to the last complete 4 chars
+  l = placeHolders > 0 ? len - 4 : len
+
+  var L = 0
+
+  for (i = 0, j = 0; i < l; i += 4, j += 3) {
+    tmp = (revLookup[b64.charCodeAt(i)] << 18) | (revLookup[b64.charCodeAt(i + 1)] << 12) | (revLookup[b64.charCodeAt(i + 2)] << 6) | revLookup[b64.charCodeAt(i + 3)]
+    arr[L++] = (tmp >> 16) & 0xFF
+    arr[L++] = (tmp >> 8) & 0xFF
+    arr[L++] = tmp & 0xFF
+  }
+
+  if (placeHolders === 2) {
+    tmp = (revLookup[b64.charCodeAt(i)] << 2) | (revLookup[b64.charCodeAt(i + 1)] >> 4)
+    arr[L++] = tmp & 0xFF
+  } else if (placeHolders === 1) {
+    tmp = (revLookup[b64.charCodeAt(i)] << 10) | (revLookup[b64.charCodeAt(i + 1)] << 4) | (revLookup[b64.charCodeAt(i + 2)] >> 2)
+    arr[L++] = (tmp >> 8) & 0xFF
+    arr[L++] = tmp & 0xFF
+  }
+
+  return arr
+}
+
+function tripletToBase64 (num) {
+  return lookup[num >> 18 & 0x3F] + lookup[num >> 12 & 0x3F] + lookup[num >> 6 & 0x3F] + lookup[num & 0x3F]
+}
+
+function encodeChunk (uint8, start, end) {
+  var tmp
+  var output = []
+  for (var i = start; i < end; i += 3) {
+    tmp = (uint8[i] << 16) + (uint8[i + 1] << 8) + (uint8[i + 2])
+    output.push(tripletToBase64(tmp))
+  }
+  return output.join('')
+}
+
+function fromByteArray (uint8) {
+  var tmp
+  var len = uint8.length
+  var extraBytes = len % 3 // if we have 1 byte left, pad 2 bytes
+  var output = ''
+  var parts = []
+  var maxChunkLength = 16383 // must be multiple of 3
+
+  // go through the array every three bytes, we'll deal with trailing stuff later
+  for (var i = 0, len2 = len - extraBytes; i < len2; i += maxChunkLength) {
+    parts.push(encodeChunk(uint8, i, (i + maxChunkLength) > len2 ? len2 : (i + maxChunkLength)))
+  }
+
+  // pad the end with zeros, but make sure to not forget the extra bytes
+  if (extraBytes === 1) {
+    tmp = uint8[len - 1]
+    output += lookup[tmp >> 2]
+    output += lookup[(tmp << 4) & 0x3F]
+    output += '=='
+  } else if (extraBytes === 2) {
+    tmp = (uint8[len - 2] << 8) + (uint8[len - 1])
+    output += lookup[tmp >> 10]
+    output += lookup[(tmp >> 4) & 0x3F]
+    output += lookup[(tmp << 2) & 0x3F]
+    output += '='
+  }
+
+  parts.push(output)
+
+  return parts.join('')
+}
+
+},{}],4:[function(require,module,exports){
+exports.read = function (buffer, offset, isLE, mLen, nBytes) {
+  var e, m
+  var eLen = nBytes * 8 - mLen - 1
+  var eMax = (1 << eLen) - 1
+  var eBias = eMax >> 1
+  var nBits = -7
+  var i = isLE ? (nBytes - 1) : 0
+  var d = isLE ? -1 : 1
+  var s = buffer[offset + i]
+
+  i += d
+
+  e = s & ((1 << (-nBits)) - 1)
+  s >>= (-nBits)
+  nBits += eLen
+  for (; nBits > 0; e = e * 256 + buffer[offset + i], i += d, nBits -= 8) {}
+
+  m = e & ((1 << (-nBits)) - 1)
+  e >>= (-nBits)
+  nBits += mLen
+  for (; nBits > 0; m = m * 256 + buffer[offset + i], i += d, nBits -= 8) {}
+
+  if (e === 0) {
+    e = 1 - eBias
+  } else if (e === eMax) {
+    return m ? NaN : ((s ? -1 : 1) * Infinity)
+  } else {
+    m = m + Math.pow(2, mLen)
+    e = e - eBias
+  }
+  return (s ? -1 : 1) * m * Math.pow(2, e - mLen)
+}
+
+exports.write = function (buffer, value, offset, isLE, mLen, nBytes) {
+  var e, m, c
+  var eLen = nBytes * 8 - mLen - 1
+  var eMax = (1 << eLen) - 1
+  var eBias = eMax >> 1
+  var rt = (mLen === 23 ? Math.pow(2, -24) - Math.pow(2, -77) : 0)
+  var i = isLE ? 0 : (nBytes - 1)
+  var d = isLE ? 1 : -1
+  var s = value < 0 || (value === 0 && 1 / value < 0) ? 1 : 0
+
+  value = Math.abs(value)
+
+  if (isNaN(value) || value === Infinity) {
+    m = isNaN(value) ? 1 : 0
+    e = eMax
+  } else {
+    e = Math.floor(Math.log(value) / Math.LN2)
+    if (value * (c = Math.pow(2, -e)) < 1) {
+      e--
+      c *= 2
+    }
+    if (e + eBias >= 1) {
+      value += rt / c
+    } else {
+      value += rt * Math.pow(2, 1 - eBias)
+    }
+    if (value * c >= 2) {
+      e++
+      c /= 2
+    }
+
+    if (e + eBias >= eMax) {
+      m = 0
+      e = eMax
+    } else if (e + eBias >= 1) {
+      m = (value * c - 1) * Math.pow(2, mLen)
+      e = e + eBias
+    } else {
+      m = value * Math.pow(2, eBias - 1) * Math.pow(2, mLen)
+      e = 0
+    }
+  }
+
+  for (; mLen >= 8; buffer[offset + i] = m & 0xff, i += d, m /= 256, mLen -= 8) {}
+
+  e = (e << mLen) | m
+  eLen += mLen
+  for (; eLen > 0; buffer[offset + i] = e & 0xff, i += d, e /= 256, eLen -= 8) {}
+
+  buffer[offset + i - d] |= s * 128
+}
+
+},{}],5:[function(require,module,exports){
+var toString = {}.toString;
+
+module.exports = Array.isArray || function (arr) {
+  return toString.call(arr) == '[object Array]';
+};
+
+},{}],6:[function(require,module,exports){
+(function (Buffer,__dirname){
+'use strict';
+
+/**
+ * Typo is a JavaScript implementation of a spellchecker using hunspell-style 
+ * dictionaries.
+ */
+
+/**
+ * Typo constructor.
+ *
+ * @param {String} [dictionary] The locale code of the dictionary being used. e.g.,
+ *                              "en_US". This is only used to auto-load dictionaries.
+ * @param {String} [affData]    The data from the dictionary's .aff file. If omitted
+ *                              and Typo.js is being used in a Chrome extension, the .aff
+ *                              file will be loaded automatically from
+ *                              lib/typo/dictionaries/[dictionary]/[dictionary].aff
+ *                              In other environments, it will be loaded from
+ *                              [settings.dictionaryPath]/dictionaries/[dictionary]/[dictionary].aff
+ * @param {String} [wordsData]  The data from the dictionary's .dic file. If omitted
+ *                              and Typo.js is being used in a Chrome extension, the .dic
+ *                              file will be loaded automatically from
+ *                              lib/typo/dictionaries/[dictionary]/[dictionary].dic
+ *                              In other environments, it will be loaded from
+ *                              [settings.dictionaryPath]/dictionaries/[dictionary]/[dictionary].dic
+ * @param {Object} [settings]   Constructor settings. Available properties are:
+ *                              {String} [dictionaryPath]: path to load dictionary from in non-chrome
+ *                              environment.
+ *                              {Object} [flags]: flag information.
+ *
+ *
+ * @returns {Typo} A Typo object.
+ */
+
+var Typo = function (dictionary, affData, wordsData, settings) {
+	settings = settings || {};
+	
+	this.dictionary = null;
+	
+	this.rules = {};
+	this.dictionaryTable = {};
+	
+	this.compoundRules = [];
+	this.compoundRuleCodes = {};
+	
+	this.replacementTable = [];
+	
+	this.flags = settings.flags || {}; 
+	
+	if (dictionary) {
+		this.dictionary = dictionary;
+		
+		if (typeof window !== 'undefined' && 'chrome' in window && 'extension' in window.chrome && 'getURL' in window.chrome.extension) {
+			if (!affData) affData = this._readFile(chrome.extension.getURL("lib/typo/dictionaries/" + dictionary + "/" + dictionary + ".aff"));
+			if (!wordsData) wordsData = this._readFile(chrome.extension.getURL("lib/typo/dictionaries/" + dictionary + "/" + dictionary + ".dic"));
+		} else {
+			if (settings.dictionaryPath) {
+				var path = settings.dictionaryPath;
+			}
+			else if (typeof __dirname !== 'undefined') {
+				var path = __dirname + '/dictionaries';
+			}
+			else {
+				var path = './dictionaries';
+			}
+			
+			if (!affData) affData = this._readFile(path + "/" + dictionary + "/" + dictionary + ".aff");
+			if (!wordsData) wordsData = this._readFile(path + "/" + dictionary + "/" + dictionary + ".dic");
+		}
+		
+		this.rules = this._parseAFF(affData);
+		
+		// Save the rule codes that are used in compound rules.
+		this.compoundRuleCodes = {};
+		
+		for (var i = 0, _len = this.compoundRules.length; i < _len; i++) {
+			var rule = this.compoundRules[i];
+			
+			for (var j = 0, _jlen = rule.length; j < _jlen; j++) {
+				this.compoundRuleCodes[rule[j]] = [];
+			}
+		}
+		
+		// If we add this ONLYINCOMPOUND flag to this.compoundRuleCodes, then _parseDIC
+		// will do the work of saving the list of words that are compound-only.
+		if ("ONLYINCOMPOUND" in this.flags) {
+			this.compoundRuleCodes[this.flags.ONLYINCOMPOUND] = [];
+		}
+		
+		this.dictionaryTable = this._parseDIC(wordsData);
+		
+		// Get rid of any codes from the compound rule codes that are never used 
+		// (or that were special regex characters).  Not especially necessary... 
+		for (var i in this.compoundRuleCodes) {
+			if (this.compoundRuleCodes[i].length == 0) {
+				delete this.compoundRuleCodes[i];
+			}
+		}
+		
+		// Build the full regular expressions for each compound rule.
+		// I have a feeling (but no confirmation yet) that this method of 
+		// testing for compound words is probably slow.
+		for (var i = 0, _len = this.compoundRules.length; i < _len; i++) {
+			var ruleText = this.compoundRules[i];
+			
+			var expressionText = "";
+			
+			for (var j = 0, _jlen = ruleText.length; j < _jlen; j++) {
+				var character = ruleText[j];
+				
+				if (character in this.compoundRuleCodes) {
+					expressionText += "(" + this.compoundRuleCodes[character].join("|") + ")";
+				}
+				else {
+					expressionText += character;
+				}
+			}
+			
+			this.compoundRules[i] = new RegExp(expressionText, "i");
+		}
+	}
+	
+	return this;
+};
+
+Typo.prototype = {
+	/**
+	 * Loads a Typo instance from a hash of all of the Typo properties.
+	 *
+	 * @param object obj A hash of Typo properties, probably gotten from a JSON.parse(JSON.stringify(typo_instance)).
+	 */
+	
+	load : function (obj) {
+		for (var i in obj) {
+			this[i] = obj[i];
+		}
+		
+		return this;
+	},
+	
+	/**
+	 * Read the contents of a file.
+	 * 
+	 * @param {String} path The path (relative) to the file.
+	 * @param {String} [charset="ISO8859-1"] The expected charset of the file
+	 * @returns string The file data.
+	 */
+	
+	_readFile : function (path, charset) {
+		if (!charset) charset = "utf8";
+		
+		if (typeof XMLHttpRequest !== 'undefined') {
+			var req = new XMLHttpRequest();
+			req.open("GET", path, false);
+		
+			if (req.overrideMimeType)
+				req.overrideMimeType("text/plain; charset=" + charset);
+		
+			req.send(null);
+			
+			return req.responseText;
+		}
+		else if (typeof require !== 'undefined') {
+			// Node.js
+			var fs = require("fs");
+			
+			try {
+				if (fs.existsSync(path)) {
+					var stats = fs.statSync(path);
+					
+					var fileDescriptor = fs.openSync(path, 'r');
+					
+					var buffer = new Buffer(stats.size);
+					
+					fs.readSync(fileDescriptor, buffer, 0, buffer.length, null);
+					
+					return buffer.toString(charset, 0, buffer.length);
+				}
+				else {
+					console.log("Path " + path + " does not exist.");
+				}
+			} catch (e) {
+				console.log(e);
+				return '';
+			}
+		}
+	},
+	
+	/**
+	 * Parse the rules out from a .aff file.
+	 *
+	 * @param {String} data The contents of the affix file.
+	 * @returns object The rules from the file.
+	 */
+	
+	_parseAFF : function (data) {
+		var rules = {};
+		
+		// Remove comment lines
+		data = this._removeAffixComments(data);
+		
+		var lines = data.split("\n");
+		
+		for (var i = 0, _len = lines.length; i < _len; i++) {
+			var line = lines[i];
+			
+			var definitionParts = line.split(/\s+/);
+			
+			var ruleType = definitionParts[0];
+			
+			if (ruleType == "PFX" || ruleType == "SFX") {
+				var ruleCode = definitionParts[1];
+				var combineable = definitionParts[2];
+				var numEntries = parseInt(definitionParts[3], 10);
+				
+				var entries = [];
+				
+				for (var j = i + 1, _jlen = i + 1 + numEntries; j < _jlen; j++) {
+					var line = lines[j];
+					
+					var lineParts = line.split(/\s+/);
+					var charactersToRemove = lineParts[2];
+					
+					var additionParts = lineParts[3].split("/");
+					
+					var charactersToAdd = additionParts[0];
+					if (charactersToAdd === "0") charactersToAdd = "";
+					
+					var continuationClasses = this.parseRuleCodes(additionParts[1]);
+					
+					var regexToMatch = lineParts[4];
+					
+					var entry = {};
+					entry.add = charactersToAdd;
+					
+					if (continuationClasses.length > 0) entry.continuationClasses = continuationClasses;
+					
+					if (regexToMatch !== ".") {
+						if (ruleType === "SFX") {
+							entry.match = new RegExp(regexToMatch + "$");
+						}
+						else {
+							entry.match = new RegExp("^" + regexToMatch);
+						}
+					}
+					
+					if (charactersToRemove != "0") {
+						if (ruleType === "SFX") {
+							entry.remove = new RegExp(charactersToRemove  + "$");
+						}
+						else {
+							entry.remove = charactersToRemove;
+						}
+					}
+					
+					entries.push(entry);
+				}
+				
+				rules[ruleCode] = { "type" : ruleType, "combineable" : (combineable == "Y"), "entries" : entries };
+				
+				i += numEntries;
+			}
+			else if (ruleType === "COMPOUNDRULE") {
+				var numEntries = parseInt(definitionParts[1], 10);
+				
+				for (var j = i + 1, _jlen = i + 1 + numEntries; j < _jlen; j++) {
+					var line = lines[j];
+					
+					var lineParts = line.split(/\s+/);
+					this.compoundRules.push(lineParts[1]);
+				}
+				
+				i += numEntries;
+			}
+			else if (ruleType === "REP") {
+				var lineParts = line.split(/\s+/);
+				
+				if (lineParts.length === 3) {
+					this.replacementTable.push([ lineParts[1], lineParts[2] ]);
+				}
+			}
+			else {
+				// ONLYINCOMPOUND
+				// COMPOUNDMIN
+				// FLAG
+				// KEEPCASE
+				// NEEDAFFIX
+				
+				this.flags[ruleType] = definitionParts[1];
+			}
+		}
+		
+		return rules;
+	},
+	
+	/**
+	 * Removes comment lines and then cleans up blank lines and trailing whitespace.
+	 *
+	 * @param {String} data The data from an affix file.
+	 * @return {String} The cleaned-up data.
+	 */
+	
+	_removeAffixComments : function (data) {
+		// Remove comments
+		data = data.replace(/#.*$/mg, "");
+		
+		// Trim each line
+		data = data.replace(/^\s\s*/m, '').replace(/\s\s*$/m, '');
+		
+		// Remove blank lines.
+		data = data.replace(/\n{2,}/g, "\n");
+		
+		// Trim the entire string
+		data = data.replace(/^\s\s*/, '').replace(/\s\s*$/, '');
+		
+		return data;
+	},
+	
+	/**
+	 * Parses the words out from the .dic file.
+	 *
+	 * @param {String} data The data from the dictionary file.
+	 * @returns object The lookup table containing all of the words and
+	 *                 word forms from the dictionary.
+	 */
+	
+	_parseDIC : function (data) {
+		data = this._removeDicComments(data);
+		
+		var lines = data.split("\n");
+		var dictionaryTable = {};
+		
+		function addWord(word, rules) {
+			// Some dictionaries will list the same word multiple times with different rule sets.
+			if (!(word in dictionaryTable) || typeof dictionaryTable[word] != 'object') {
+				dictionaryTable[word] = [];
+			}
+			
+			dictionaryTable[word].push(rules);
+		}
+		
+		// The first line is the number of words in the dictionary.
+		for (var i = 1, _len = lines.length; i < _len; i++) {
+			var line = lines[i];
+			
+			var parts = line.split("/", 2);
+			
+			var word = parts[0];
+
+			// Now for each affix rule, generate that form of the word.
+			if (parts.length > 1) {
+				var ruleCodesArray = this.parseRuleCodes(parts[1]);
+				
+				// Save the ruleCodes for compound word situations.
+				if (!("NEEDAFFIX" in this.flags) || ruleCodesArray.indexOf(this.flags.NEEDAFFIX) == -1) {
+					addWord(word, ruleCodesArray);
+				}
+				
+				for (var j = 0, _jlen = ruleCodesArray.length; j < _jlen; j++) {
+					var code = ruleCodesArray[j];
+					
+					var rule = this.rules[code];
+					
+					if (rule) {
+						var newWords = this._applyRule(word, rule);
+						
+						for (var ii = 0, _iilen = newWords.length; ii < _iilen; ii++) {
+							var newWord = newWords[ii];
+							
+							addWord(newWord, []);
+							
+							if (rule.combineable) {
+								for (var k = j + 1; k < _jlen; k++) {
+									var combineCode = ruleCodesArray[k];
+									
+									var combineRule = this.rules[combineCode];
+									
+									if (combineRule) {
+										if (combineRule.combineable && (rule.type != combineRule.type)) {
+											var otherNewWords = this._applyRule(newWord, combineRule);
+											
+											for (var iii = 0, _iiilen = otherNewWords.length; iii < _iiilen; iii++) {
+												var otherNewWord = otherNewWords[iii];
+												addWord(otherNewWord, []);
+											}
+										}
+									}
+								}
+							}
+						}
+					}
+					
+					if (code in this.compoundRuleCodes) {
+						this.compoundRuleCodes[code].push(word);
+					}
+				}
+			}
+			else {
+				addWord(word.trim(), []);
+			}
+		}
+		
+		return dictionaryTable;
+	},
+	
+	
+	/**
+	 * Removes comment lines and then cleans up blank lines and trailing whitespace.
+	 *
+	 * @param {String} data The data from a .dic file.
+	 * @return {String} The cleaned-up data.
+	 */
+	
+	_removeDicComments : function (data) {
+		// I can't find any official documentation on it, but at least the de_DE
+		// dictionary uses tab-indented lines as comments.
+		
+		// Remove comments
+		data = data.replace(/^\t.*$/mg, "");
+		
+		return data;
+	},
+	
+	parseRuleCodes : function (textCodes) {
+		if (!textCodes) {
+			return [];
+		}
+		else if (!("FLAG" in this.flags)) {
+			return textCodes.split("");
+		}
+		else if (this.flags.FLAG === "long") {
+			var flags = [];
+			
+			for (var i = 0, _len = textCodes.length; i < _len; i += 2) {
+				flags.push(textCodes.substr(i, 2));
+			}
+			
+			return flags;
+		}
+		else if (this.flags.FLAG === "num") {
+			return textCode.split(",");
+		}
+	},
+	
+	/**
+	 * Applies an affix rule to a word.
+	 *
+	 * @param {String} word The base word.
+	 * @param {Object} rule The affix rule.
+	 * @returns {String[]} The new words generated by the rule.
+	 */
+	
+	_applyRule : function (word, rule) {
+		var entries = rule.entries;
+		var newWords = [];
+		
+		for (var i = 0, _len = entries.length; i < _len; i++) {
+			var entry = entries[i];
+			
+			if (!entry.match || word.match(entry.match)) {
+				var newWord = word;
+				
+				if (entry.remove) {
+					newWord = newWord.replace(entry.remove, "");
+				}
+				
+				if (rule.type === "SFX") {
+					newWord = newWord + entry.add;
+				}
+				else {
+					newWord = entry.add + newWord;
+				}
+				
+				newWords.push(newWord);
+				
+				if ("continuationClasses" in entry) {
+					for (var j = 0, _jlen = entry.continuationClasses.length; j < _jlen; j++) {
+						var continuationRule = this.rules[entry.continuationClasses[j]];
+						
+						if (continuationRule) {
+							newWords = newWords.concat(this._applyRule(newWord, continuationRule));
+						}
+						/*
+						else {
+							// This shouldn't happen, but it does, at least in the de_DE dictionary.
+							// I think the author mistakenly supplied lower-case rule codes instead 
+							// of upper-case.
+						}
+						*/
+					}
+				}
+			}
+		}
+		
+		return newWords;
+	},
+	
+	/**
+	 * Checks whether a word or a capitalization variant exists in the current dictionary.
+	 * The word is trimmed and several variations of capitalizations are checked.
+	 * If you want to check a word without any changes made to it, call checkExact()
+	 *
+	 * @see http://blog.stevenlevithan.com/archives/faster-trim-javascript re:trimming function
+	 *
+	 * @param {String} aWord The word to check.
+	 * @returns {Boolean}
+	 */
+	
+	check : function (aWord) {
+		// Remove leading and trailing whitespace
+		var trimmedWord = aWord.replace(/^\s\s*/, '').replace(/\s\s*$/, '');
+		
+		if (this.checkExact(trimmedWord)) {
+			return true;
+		}
+		
+		// The exact word is not in the dictionary.
+		if (trimmedWord.toUpperCase() === trimmedWord) {
+			// The word was supplied in all uppercase.
+			// Check for a capitalized form of the word.
+			var capitalizedWord = trimmedWord[0] + trimmedWord.substring(1).toLowerCase();
+			
+			if (this.hasFlag(capitalizedWord, "KEEPCASE")) {
+				// Capitalization variants are not allowed for this word.
+				return false;
+			}
+			
+			if (this.checkExact(capitalizedWord)) {
+				return true;
+			}
+		}
+		
+		var lowercaseWord = trimmedWord.toLowerCase();
+		
+		if (lowercaseWord !== trimmedWord) {
+			if (this.hasFlag(lowercaseWord, "KEEPCASE")) {
+				// Capitalization variants are not allowed for this word.
+				return false;
+			}
+			
+			// Check for a lowercase form
+			if (this.checkExact(lowercaseWord)) {
+				return true;
+			}
+		}
+		
+		return false;
+	},
+	
+	/**
+	 * Checks whether a word exists in the current dictionary.
+	 *
+	 * @param {String} word The word to check.
+	 * @returns {Boolean}
+	 */
+	
+	checkExact : function (word) {
+		var ruleCodes = this.dictionaryTable[word];
+		
+		if (typeof ruleCodes === 'undefined') {
+			// Check if this might be a compound word.
+			if ("COMPOUNDMIN" in this.flags && word.length >= this.flags.COMPOUNDMIN) {
+				for (var i = 0, _len = this.compoundRules.length; i < _len; i++) {
+					if (word.match(this.compoundRules[i])) {
+						return true;
+					}
+				}
+			}
+			
+			return false;
+		}
+		else if (typeof ruleCodes === 'object') { // this.dictionary['hasOwnProperty'] will be a function.
+			for (var i = 0, _len = ruleCodes.length; i < _len; i++) {
+				if (!this.hasFlag(word, "ONLYINCOMPOUND", ruleCodes[i])) {
+					return true;
+				}
+			}
+			
+			return false;
+		}
+	},
+	
+	/**
+	 * Looks up whether a given word is flagged with a given flag.
+	 *
+	 * @param {String} word The word in question.
+	 * @param {String} flag The flag in question.
+	 * @return {Boolean}
+	 */
+	 
+	hasFlag : function (word, flag, wordFlags) {
+		if (flag in this.flags) {
+			if (typeof wordFlags === 'undefined') {
+				var wordFlags = Array.prototype.concat.apply([], this.dictionaryTable[word]);
+			}
+			
+			if (wordFlags && wordFlags.indexOf(this.flags[flag]) !== -1) {
+				return true;
+			}
+		}
+		
+		return false;
+	},
+	
+	/**
+	 * Returns a list of suggestions for a misspelled word.
+	 *
+	 * @see http://www.norvig.com/spell-correct.html for the basis of this suggestor.
+	 * This suggestor is primitive, but it works.
+	 *
+	 * @param {String} word The misspelling.
+	 * @param {Number} [limit=5] The maximum number of suggestions to return.
+	 * @returns {String[]} The array of suggestions.
+	 */
+	
+	alphabet : "",
+	
+	suggest : function (word, limit) {
+		if (!limit) limit = 5;
+		
+		if (this.check(word)) return [];
+		
+		// Check the replacement table.
+		for (var i = 0, _len = this.replacementTable.length; i < _len; i++) {
+			var replacementEntry = this.replacementTable[i];
+			
+			if (word.indexOf(replacementEntry[0]) !== -1) {
+				var correctedWord = word.replace(replacementEntry[0], replacementEntry[1]);
+				
+				if (this.check(correctedWord)) {
+					return [ correctedWord ];
+				}
+			}
+		}
+		
+		var self = this;
+		self.alphabet = "abcdefghijklmnopqrstuvwxyz";
+		
+		/*
+		if (!self.alphabet) {
+			// Use the alphabet as implicitly defined by the words in the dictionary.
+			var alphaHash = {};
+			
+			for (var i in self.dictionaryTable) {
+				for (var j = 0, _len = i.length; j < _len; j++) {
+					alphaHash[i[j]] = true;
+				}
+			}
+			
+			for (var i in alphaHash) {
+				self.alphabet += i;
+			}
+			
+			var alphaArray = self.alphabet.split("");
+			alphaArray.sort();
+			self.alphabet = alphaArray.join("");
+		}
+		*/
+		
+		function edits1(words) {
+			var rv = [];
+			
+			for (var ii = 0, _iilen = words.length; ii < _iilen; ii++) {
+				var word = words[ii];
+				
+				var splits = [];
+			
+				for (var i = 0, _len = word.length + 1; i < _len; i++) {
+					splits.push([ word.substring(0, i), word.substring(i, word.length) ]);
+				}
+			
+				var deletes = [];
+			
+				for (var i = 0, _len = splits.length; i < _len; i++) {
+					var s = splits[i];
+				
+					if (s[1]) {
+						deletes.push(s[0] + s[1].substring(1));
+					}
+				}
+			
+				var transposes = [];
+			
+				for (var i = 0, _len = splits.length; i < _len; i++) {
+					var s = splits[i];
+				
+					if (s[1].length > 1) {
+						transposes.push(s[0] + s[1][1] + s[1][0] + s[1].substring(2));
+					}
+				}
+			
+				var replaces = [];
+			
+				for (var i = 0, _len = splits.length; i < _len; i++) {
+					var s = splits[i];
+				
+					if (s[1]) {
+						for (var j = 0, _jlen = self.alphabet.length; j < _jlen; j++) {
+							replaces.push(s[0] + self.alphabet[j] + s[1].substring(1));
+						}
+					}
+				}
+			
+				var inserts = [];
+			
+				for (var i = 0, _len = splits.length; i < _len; i++) {
+					var s = splits[i];
+				
+					if (s[1]) {
+						for (var j = 0, _jlen = self.alphabet.length; j < _jlen; j++) {
+							replaces.push(s[0] + self.alphabet[j] + s[1]);
+						}
+					}
+				}
+			
+				rv = rv.concat(deletes);
+				rv = rv.concat(transposes);
+				rv = rv.concat(replaces);
+				rv = rv.concat(inserts);
+			}
+			
+			return rv;
+		}
+		
+		function known(words) {
+			var rv = [];
+			
+			for (var i = 0; i < words.length; i++) {
+				if (self.check(words[i])) {
+					rv.push(words[i]);
+				}
+			}
+			
+			return rv;
+		}
+		
+		function correct(word) {
+			// Get the edit-distance-1 and edit-distance-2 forms of this word.
+			var ed1 = edits1([word]);
+			var ed2 = edits1(ed1);
+			
+			var corrections = known(ed1).concat(known(ed2));
+			
+			// Sort the edits based on how many different ways they were created.
+			var weighted_corrections = {};
+			
+			for (var i = 0, _len = corrections.length; i < _len; i++) {
+				if (!(corrections[i] in weighted_corrections)) {
+					weighted_corrections[corrections[i]] = 1;
+				}
+				else {
+					weighted_corrections[corrections[i]] += 1;
+				}
+			}
+			
+			var sorted_corrections = [];
+			
+			for (var i in weighted_corrections) {
+				sorted_corrections.push([ i, weighted_corrections[i] ]);
+			}
+			
+			function sorter(a, b) {
+				if (a[1] < b[1]) {
+					return -1;
+				}
+				
+				return 1;
+			}
+			
+			sorted_corrections.sort(sorter).reverse();
+			
+			var rv = [];
+			
+			for (var i = 0, _len = Math.min(limit, sorted_corrections.length); i < _len; i++) {
+				if (!self.hasFlag(sorted_corrections[i][0], "NOSUGGEST")) {
+					rv.push(sorted_corrections[i][0]);
+				}
+			}
+			
+			return rv;
+		}
+		
+		return correct(word);
+	}
+};
+
+// Support for use as a node.js module.
+if (typeof module !== 'undefined') {
+	module.exports = Typo;
+}
+}).call(this,require("buffer").Buffer,"/node_modules/codemirror-spell-checker/node_modules/typo-js")
+},{"buffer":2,"fs":1}],7:[function(require,module,exports){
 // Use strict mode (https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Strict_mode)
 "use strict";
 
@@ -1952,7 +2915,7 @@ CodeMirrorSpellChecker.typo;
 
 // Export
 module.exports = CodeMirrorSpellChecker;
-},{"typo-js":18}],5:[function(require,module,exports){
+},{"typo-js":6}],8:[function(require,module,exports){
 // CodeMirror, copyright (c) by Marijn Haverbeke and others
 // Distributed under an MIT license: http://codemirror.net/LICENSE
 
@@ -1995,7 +2958,7 @@ module.exports = CodeMirrorSpellChecker;
   }
 });
 
-},{"../../lib/codemirror":10}],6:[function(require,module,exports){
+},{"../../lib/codemirror":13}],9:[function(require,module,exports){
 // CodeMirror, copyright (c) by Marijn Haverbeke and others
 // Distributed under an MIT license: http://codemirror.net/LICENSE
 
@@ -2059,7 +3022,7 @@ module.exports = CodeMirrorSpellChecker;
   }
 });
 
-},{"../../lib/codemirror":10}],7:[function(require,module,exports){
+},{"../../lib/codemirror":13}],10:[function(require,module,exports){
 // CodeMirror, copyright (c) by Marijn Haverbeke and others
 // Distributed under an MIT license: http://codemirror.net/LICENSE
 
@@ -2112,7 +3075,7 @@ module.exports = CodeMirrorSpellChecker;
   };
 });
 
-},{"../../lib/codemirror":10}],8:[function(require,module,exports){
+},{"../../lib/codemirror":13}],11:[function(require,module,exports){
 // CodeMirror, copyright (c) by Marijn Haverbeke and others
 // Distributed under an MIT license: http://codemirror.net/LICENSE
 
@@ -2199,7 +3162,7 @@ CodeMirror.overlayMode = function(base, overlay, combine) {
 
 });
 
-},{"../../lib/codemirror":10}],9:[function(require,module,exports){
+},{"../../lib/codemirror":13}],12:[function(require,module,exports){
 // CodeMirror, copyright (c) by Marijn Haverbeke and others
 // Distributed under an MIT license: http://codemirror.net/LICENSE
 
@@ -2319,7 +3282,7 @@ CodeMirror.overlayMode = function(base, overlay, combine) {
   }
 });
 
-},{"../../lib/codemirror":10}],10:[function(require,module,exports){
+},{"../../lib/codemirror":13}],13:[function(require,module,exports){
 // CodeMirror, copyright (c) by Marijn Haverbeke and others
 // Distributed under an MIT license: http://codemirror.net/LICENSE
 
@@ -2914,8 +3877,12 @@ CodeMirror.overlayMode = function(base, overlay, combine) {
     var comp = compensateForHScroll(display) - display.scroller.scrollLeft + cm.doc.scrollLeft;
     var gutterW = display.gutters.offsetWidth, left = comp + "px";
     for (var i = 0; i < view.length; i++) if (!view[i].hidden) {
-      if (cm.options.fixedGutter && view[i].gutter)
-        view[i].gutter.style.left = left;
+      if (cm.options.fixedGutter) {
+        if (view[i].gutter)
+          view[i].gutter.style.left = left;
+        if (view[i].gutterBackground)
+          view[i].gutterBackground.style.left = left;
+      }
       var align = view[i].alignable;
       if (align) for (var j = 0; j < align.length; j++)
         align[j].style.left = left;
@@ -3471,7 +4438,7 @@ CodeMirror.overlayMode = function(base, overlay, combine) {
   }
 
   function handlePaste(e, cm) {
-    var pasted = e.clipboardData && e.clipboardData.getData("text/plain");
+    var pasted = e.clipboardData && e.clipboardData.getData("Text");
     if (pasted) {
       e.preventDefault();
       if (!cm.isReadOnly() && !cm.options.disableInput)
@@ -3515,10 +4482,10 @@ CodeMirror.overlayMode = function(base, overlay, combine) {
     return {text: text, ranges: ranges};
   }
 
-  function disableBrowserMagic(field) {
+  function disableBrowserMagic(field, spellcheck) {
     field.setAttribute("autocorrect", "off");
     field.setAttribute("autocapitalize", "off");
-    field.setAttribute("spellcheck", "false");
+    field.setAttribute("spellcheck", !!spellcheck);
   }
 
   // TEXTAREA INPUT STYLE
@@ -3543,7 +4510,7 @@ CodeMirror.overlayMode = function(base, overlay, combine) {
   };
 
   function hiddenTextarea() {
-    var te = elt("textarea", null, null, "position: absolute; padding: 0; width: 1px; height: 1em; outline: none");
+    var te = elt("textarea", null, null, "position: absolute; bottom: -1em; padding: 0; width: 1px; height: 1em; outline: none");
     var div = elt("div", [te], null, "overflow: hidden; position: relative; width: 3px; height: 0px;");
     // The textarea is kept positioned near the cursor to prevent the
     // fact that it'll be scrolled into view on input from scrolling
@@ -3896,10 +4863,14 @@ CodeMirror.overlayMode = function(base, overlay, combine) {
     init: function(display) {
       var input = this, cm = input.cm;
       var div = input.div = display.lineDiv;
-      disableBrowserMagic(div);
+      disableBrowserMagic(div, cm.options.spellcheck);
 
       on(div, "paste", function(e) {
-        if (!signalDOMEvent(cm, e)) handlePaste(e, cm);
+        if (signalDOMEvent(cm, e) || handlePaste(e, cm)) return
+        // IE doesn't fire input events, so we schedule a read for the pasted content in this way
+        if (ie_version <= 11) setTimeout(operation(cm, function() {
+          if (!input.pollContent()) regChange(cm);
+        }), 20)
       })
 
       on(div, "compositionstart", function(e) {
@@ -3959,23 +4930,27 @@ CodeMirror.overlayMode = function(base, overlay, combine) {
             });
           }
         }
-        // iOS exposes the clipboard API, but seems to discard content inserted into it
-        if (e.clipboardData && !ios) {
-          e.preventDefault();
+        if (e.clipboardData) {
           e.clipboardData.clearData();
-          e.clipboardData.setData("text/plain", lastCopied.text.join("\n"));
-        } else {
-          // Old-fashioned briefly-focus-a-textarea hack
-          var kludge = hiddenTextarea(), te = kludge.firstChild;
-          cm.display.lineSpace.insertBefore(kludge, cm.display.lineSpace.firstChild);
-          te.value = lastCopied.text.join("\n");
-          var hadFocus = document.activeElement;
-          selectInput(te);
-          setTimeout(function() {
-            cm.display.lineSpace.removeChild(kludge);
-            hadFocus.focus();
-          }, 50);
+          var content = lastCopied.text.join("\n")
+          // iOS exposes the clipboard API, but seems to discard content inserted into it
+          e.clipboardData.setData("Text", content);
+          if (e.clipboardData.getData("Text") == content) {
+            e.preventDefault();
+            return
+          }
         }
+        // Old-fashioned briefly-focus-a-textarea hack
+        var kludge = hiddenTextarea(), te = kludge.firstChild;
+        cm.display.lineSpace.insertBefore(kludge, cm.display.lineSpace.firstChild);
+        te.value = lastCopied.text.join("\n");
+        var hadFocus = document.activeElement;
+        selectInput(te);
+        setTimeout(function() {
+          cm.display.lineSpace.removeChild(kludge);
+          hadFocus.focus();
+          if (hadFocus == div) input.showPrimarySelection()
+        }, 50);
       }
       on(div, "copy", onCopyCut);
       on(div, "cut", onCopyCut);
@@ -4283,7 +5258,7 @@ CodeMirror.overlayMode = function(base, overlay, combine) {
       if (found)
         return badPos(Pos(found.line, found.ch + dist), bad);
       else
-        dist += after.textContent.length;
+        dist += before.textContent.length;
     }
   }
 
@@ -5010,6 +5985,16 @@ CodeMirror.overlayMode = function(base, overlay, combine) {
     return {node: node, start: start, end: end, collapse: collapse, coverStart: mStart, coverEnd: mEnd};
   }
 
+  function getUsefulRect(rects, bias) {
+    var rect = nullRect
+    if (bias == "left") for (var i = 0; i < rects.length; i++) {
+      if ((rect = rects[i]).left != rect.right) break
+    } else for (var i = rects.length - 1; i >= 0; i--) {
+      if ((rect = rects[i]).left != rect.right) break
+    }
+    return rect
+  }
+
   function measureCharInner(cm, prepared, ch, bias) {
     var place = nodeAndOffsetInLineMap(prepared.map, ch, bias);
     var node = place.node, start = place.start, end = place.end, collapse = place.collapse;
@@ -5019,17 +6004,10 @@ CodeMirror.overlayMode = function(base, overlay, combine) {
       for (var i = 0; i < 4; i++) { // Retry a maximum of 4 times when nonsense rectangles are returned
         while (start && isExtendingChar(prepared.line.text.charAt(place.coverStart + start))) --start;
         while (place.coverStart + end < place.coverEnd && isExtendingChar(prepared.line.text.charAt(place.coverStart + end))) ++end;
-        if (ie && ie_version < 9 && start == 0 && end == place.coverEnd - place.coverStart) {
+        if (ie && ie_version < 9 && start == 0 && end == place.coverEnd - place.coverStart)
           rect = node.parentNode.getBoundingClientRect();
-        } else if (ie && cm.options.lineWrapping) {
-          var rects = range(node, start, end).getClientRects();
-          if (rects.length)
-            rect = rects[bias == "right" ? rects.length - 1 : 0];
-          else
-            rect = nullRect;
-        } else {
-          rect = range(node, start, end).getBoundingClientRect() || nullRect;
-        }
+        else
+          rect = getUsefulRect(range(node, start, end).getClientRects(), bias)
         if (rect.left || rect.right || start == 0) break;
         end = start;
         start = start - 1;
@@ -5255,10 +6233,23 @@ CodeMirror.overlayMode = function(base, overlay, combine) {
     for (;;) {
       if (bidi ? to == from || to == moveVisually(lineObj, from, 1) : to - from <= 1) {
         var ch = x < fromX || x - fromX <= toX - x ? from : to;
+        var outside = ch == from ? fromOutside : toOutside
         var xDiff = x - (ch == from ? fromX : toX);
+        // This is a kludge to handle the case where the coordinates
+        // are after a line-wrapped line. We should replace it with a
+        // more general handling of cursor positions around line
+        // breaks. (Issue #4078)
+        if (toOutside && !bidi && !/\s/.test(lineObj.text.charAt(ch)) && xDiff > 0 &&
+            ch < lineObj.text.length && preparedMeasure.view.measure.heights.length > 1) {
+          var charSize = measureCharPrepared(cm, preparedMeasure, ch, "right");
+          if (innerOff <= charSize.bottom && innerOff >= charSize.top && Math.abs(x - charSize.right) < xDiff) {
+            outside = false
+            ch++
+            xDiff = x - charSize.right
+          }
+        }
         while (isExtendingChar(lineObj.text.charAt(ch))) ++ch;
-        var pos = PosWithInfo(lineNo, ch, ch == from ? fromOutside : toOutside,
-                              xDiff < -1 ? -1 : xDiff > 1 ? 1 : 0);
+        var pos = PosWithInfo(lineNo, ch, outside, xDiff < -1 ? -1 : xDiff > 1 ? 1 : 0);
         return pos;
       }
       var step = Math.ceil(dist / 2), middle = from + step;
@@ -5982,6 +6973,7 @@ CodeMirror.overlayMode = function(base, overlay, combine) {
     // Let the drag handler handle this.
     if (webkit) display.scroller.draggable = true;
     cm.state.draggingText = dragEnd;
+    dragEnd.copy = mac ? e.altKey : e.ctrlKey
     // IE's approach to draggable
     if (display.scroller.dragDrop) display.scroller.dragDrop();
     on(document, "mouseup", dragEnd);
@@ -6212,7 +7204,7 @@ CodeMirror.overlayMode = function(base, overlay, combine) {
       try {
         var text = e.dataTransfer.getData("Text");
         if (text) {
-          if (cm.state.draggingText && !(mac ? e.altKey : e.ctrlKey))
+          if (cm.state.draggingText && !cm.state.draggingText.copy)
             var selected = cm.listSelections();
           setSelectionNoUndo(cm.doc, simpleSelection(pos, pos));
           if (selected) for (var i = 0; i < selected.length; ++i)
@@ -6727,7 +7719,7 @@ CodeMirror.overlayMode = function(base, overlay, combine) {
 
   // Revert a change stored in a document's history.
   function makeChangeFromHistory(doc, type, allowSelectionOnly) {
-    if (doc.cm && doc.cm.state.suppressEdits) return;
+    if (doc.cm && doc.cm.state.suppressEdits && !allowSelectionOnly) return;
 
     var hist = doc.history, event, selAfter = doc.sel;
     var source = type == "undo" ? hist.done : hist.undone, dest = type == "undo" ? hist.undone : hist.done;
@@ -7253,7 +8245,10 @@ CodeMirror.overlayMode = function(base, overlay, combine) {
     addOverlay: methodOp(function(spec, options) {
       var mode = spec.token ? spec : CodeMirror.getMode(this.options, spec);
       if (mode.startState) throw new Error("Overlays may not be stateful.");
-      this.state.overlays.push({mode: mode, modeSpec: spec, opaque: options && options.opaque});
+      insertSorted(this.state.overlays,
+                   {mode: mode, modeSpec: spec, opaque: options && options.opaque,
+                    priority: (options && options.priority) || 0},
+                   function(overlay) { return overlay.priority })
       this.state.modeGen++;
       regChange(this);
     }),
@@ -7725,6 +8720,9 @@ CodeMirror.overlayMode = function(base, overlay, combine) {
   option("inputStyle", mobile ? "contenteditable" : "textarea", function() {
     throw new Error("inputStyle can not (yet) be changed in a running editor"); // FIXME
   }, true);
+  option("spellcheck", false, function(cm, val) {
+    cm.getInputField().spellcheck = val
+  }, true);
   option("rtlMoveVisually", !windows);
   option("wholeLineUpdateBefore", true);
 
@@ -7834,6 +8832,8 @@ CodeMirror.overlayMode = function(base, overlay, combine) {
       spec.name = found.name;
     } else if (typeof spec == "string" && /^[\w\-]+\/[\w\-]+\+xml$/.test(spec)) {
       return CodeMirror.resolveMode("application/xml");
+    } else if (typeof spec == "string" && /^[\w\-]+\/[\w\-]+\+json$/.test(spec)) {
+      return CodeMirror.resolveMode("application/json");
     }
     if (typeof spec == "string") return {name: spec};
     else return spec || {name: "null"};
@@ -9252,6 +10252,7 @@ CodeMirror.overlayMode = function(base, overlay, combine) {
     var content = elt("span", null, null, webkit ? "padding-right: .1px" : null);
     var builder = {pre: elt("pre", [content], "CodeMirror-line"), content: content,
                    col: 0, pos: 0, cm: cm,
+                   trailingSpace: false,
                    splitSpaces: (ie || webkit) && cm.getOption("lineWrapping")};
     lineView.measure = {};
 
@@ -9313,7 +10314,7 @@ CodeMirror.overlayMode = function(base, overlay, combine) {
   // the line map. Takes care to render special characters separately.
   function buildToken(builder, text, style, startStyle, endStyle, title, css) {
     if (!text) return;
-    var displayText = builder.splitSpaces ? text.replace(/ {3,}/g, splitSpaces) : text;
+    var displayText = builder.splitSpaces ? splitSpaces(text, builder.trailingSpace) : text
     var special = builder.cm.state.specialChars, mustWrap = false;
     if (!special.test(text)) {
       builder.col += text.length;
@@ -9358,6 +10359,7 @@ CodeMirror.overlayMode = function(base, overlay, combine) {
         builder.pos++;
       }
     }
+    builder.trailingSpace = displayText.charCodeAt(text.length - 1) == 32
     if (style || startStyle || endStyle || mustWrap || css) {
       var fullStyle = style || "";
       if (startStyle) fullStyle += startStyle;
@@ -9369,11 +10371,17 @@ CodeMirror.overlayMode = function(base, overlay, combine) {
     builder.content.appendChild(content);
   }
 
-  function splitSpaces(old) {
-    var out = " ";
-    for (var i = 0; i < old.length - 2; ++i) out += i % 2 ? " " : "\u00a0";
-    out += " ";
-    return out;
+  function splitSpaces(text, trailingBefore) {
+    if (text.length > 1 && !/  /.test(text)) return text
+    var spaceBefore = trailingBefore, result = ""
+    for (var i = 0; i < text.length; i++) {
+      var ch = text.charAt(i)
+      if (ch == " " && spaceBefore && (i == text.length - 1 || text.charCodeAt(i + 1) == 32))
+        ch = "\u00a0"
+      result += ch
+      spaceBefore = ch == " "
+    }
+    return result
   }
 
   // Work around nonsense dimensions being reported for stretches of
@@ -9410,6 +10418,7 @@ CodeMirror.overlayMode = function(base, overlay, combine) {
       builder.content.appendChild(widget);
     }
     builder.pos += size;
+    builder.trailingSpace = false
   }
 
   // Outputs a number of spans to make up a line, taking highlighting
@@ -10254,7 +11263,7 @@ CodeMirror.overlayMode = function(base, overlay, combine) {
   }
 
   // Register a change in the history. Merges changes that are within
-  // a single operation, ore are close together with an origin that
+  // a single operation, or are close together with an origin that
   // allows merging (starting with "+") into a single event.
   function addChangeToHistory(doc, change, selAfter, opId) {
     var hist = doc.history;
@@ -10657,6 +11666,12 @@ CodeMirror.overlayMode = function(base, overlay, combine) {
     return out;
   }
 
+  function insertSorted(array, value, score) {
+    var pos = 0, priority = score(value)
+    while (pos < array.length && score(array[pos]) <= priority) pos++
+    array.splice(pos, 0, value)
+  }
+
   function nothing() {}
 
   function createObj(base, props) {
@@ -10857,8 +11872,9 @@ CodeMirror.overlayMode = function(base, overlay, combine) {
     if (badBidiRects != null) return badBidiRects;
     var txt = removeChildrenAndAdd(measure, document.createTextNode("A\u062eA"));
     var r0 = range(txt, 0, 1).getBoundingClientRect();
-    if (!r0 || r0.left == r0.right) return false; // Safari returns null in some cases (#2780)
     var r1 = range(txt, 1, 2).getBoundingClientRect();
+    removeChildren(measure);
+    if (!r0 || r0.left == r0.right) return false; // Safari returns null in some cases (#2780)
     return badBidiRects = (r1.right - r0.right < 3);
   }
 
@@ -11224,12 +12240,12 @@ CodeMirror.overlayMode = function(base, overlay, combine) {
 
   // THE END
 
-  CodeMirror.version = "5.15.2";
+  CodeMirror.version = "5.18.2";
 
   return CodeMirror;
 });
 
-},{}],11:[function(require,module,exports){
+},{}],14:[function(require,module,exports){
 // CodeMirror, copyright (c) by Marijn Haverbeke and others
 // Distributed under an MIT license: http://codemirror.net/LICENSE
 
@@ -11361,7 +12377,7 @@ CodeMirror.defineMode("gfm", function(config, modeConfig) {
   CodeMirror.defineMIME("text/x-gfm", "gfm");
 });
 
-},{"../../addon/mode/overlay":8,"../../lib/codemirror":10,"../markdown/markdown":12}],12:[function(require,module,exports){
+},{"../../addon/mode/overlay":11,"../../lib/codemirror":13,"../markdown/markdown":15}],15:[function(require,module,exports){
 // CodeMirror, copyright (c) by Marijn Haverbeke and others
 // Distributed under an MIT license: http://codemirror.net/LICENSE
 
@@ -11427,7 +12443,9 @@ CodeMirror.defineMode("markdown", function(cmCfg, modeCfg) {
     list2: "variable-3",
     list3: "keyword",
     hr: "hr",
-    image: "tag",
+    image: "image",
+    imageAltText: "image-alt-text",
+    imageMarker: "image-marker",
     formatting: "formatting",
     linkInline: "link",
     linkEmail: "link",
@@ -11677,6 +12695,9 @@ CodeMirror.defineMode("markdown", function(cmCfg, modeCfg) {
       if (state.strikethrough) { styles.push(tokenTypes.strikethrough); }
       if (state.linkText) { styles.push(tokenTypes.linkText); }
       if (state.code) { styles.push(tokenTypes.code); }
+      if (state.image) { styles.push(tokenTypes.image); }
+      if (state.imageAltText) { styles.push(tokenTypes.imageAltText, "link"); }
+      if (state.imageMarker) { styles.push(tokenTypes.imageMarker); }
     }
 
     if (state.header) { styles.push(tokenTypes.header, tokenTypes.header + "-" + state.header); }
@@ -11796,12 +12817,29 @@ CodeMirror.defineMode("markdown", function(cmCfg, modeCfg) {
     }
 
     if (ch === '!' && stream.match(/\[[^\]]*\] ?(?:\(|\[)/, false)) {
-      stream.match(/\[[^\]]*\]/);
-      state.inline = state.f = linkHref;
-      return tokenTypes.image;
+      state.imageMarker = true;
+      state.image = true;
+      if (modeCfg.highlightFormatting) state.formatting = "image";
+      return getType(state);
     }
 
-    if (ch === '[' && stream.match(/[^\]]*\](\(.*\)| ?\[.*?\])/, false)) {
+    if (ch === '[' && state.imageMarker) {
+      state.imageMarker = false;
+      state.imageAltText = true
+      if (modeCfg.highlightFormatting) state.formatting = "image";
+      return getType(state);
+    }
+
+    if (ch === ']' && state.imageAltText) {
+      if (modeCfg.highlightFormatting) state.formatting = "image";
+      var type = getType(state);
+      state.imageAltText = false;
+      state.image = false;
+      state.inline = state.f = linkHref;
+      return type;
+    }
+
+    if (ch === '[' && stream.match(/[^\]]*\](\(.*\)| ?\[.*?\])/, false) && !state.image) {
       state.linkText = true;
       if (modeCfg.highlightFormatting) state.formatting = "link";
       return getType(state);
@@ -12160,7 +13198,7 @@ CodeMirror.defineMIME("text/x-markdown", "markdown");
 
 });
 
-},{"../../lib/codemirror":10,"../meta":13,"../xml/xml":14}],13:[function(require,module,exports){
+},{"../../lib/codemirror":13,"../meta":16,"../xml/xml":17}],16:[function(require,module,exports){
 // CodeMirror, copyright (c) by Marijn Haverbeke and others
 // Distributed under an MIT license: http://codemirror.net/LICENSE
 
@@ -12229,7 +13267,7 @@ CodeMirror.defineMIME("text/x-markdown", "markdown");
     {name: "HTML", mime: "text/html", mode: "htmlmixed", ext: ["html", "htm"], alias: ["xhtml"]},
     {name: "HTTP", mime: "message/http", mode: "http"},
     {name: "IDL", mime: "text/x-idl", mode: "idl", ext: ["pro"]},
-    {name: "Jade", mime: "text/x-jade", mode: "jade", ext: ["jade"]},
+    {name: "Pug", mime: "text/x-pug", mode: "pug", ext: ["jade", "pug"], alias: ["jade"]},
     {name: "Java", mime: "text/x-java", mode: "clike", ext: ["java"]},
     {name: "Java Server Pages", mime: "application/x-jsp", mode: "htmlembedded", ext: ["jsp"], alias: ["jsp"]},
     {name: "JavaScript", mimes: ["text/javascript", "text/ecmascript", "application/javascript", "application/x-javascript", "application/ecmascript"],
@@ -12370,7 +13408,7 @@ CodeMirror.defineMIME("text/x-markdown", "markdown");
   };
 });
 
-},{"../lib/codemirror":10}],14:[function(require,module,exports){
+},{"../lib/codemirror":13}],17:[function(require,module,exports){
 // CodeMirror, copyright (c) by Marijn Haverbeke and others
 // Distributed under an MIT license: http://codemirror.net/LICENSE
 
@@ -12766,104 +13804,11 @@ if (!CodeMirror.mimeModes.hasOwnProperty("text/html"))
 
 });
 
-},{"../../lib/codemirror":10}],15:[function(require,module,exports){
-exports.read = function (buffer, offset, isLE, mLen, nBytes) {
-  var e, m
-  var eLen = nBytes * 8 - mLen - 1
-  var eMax = (1 << eLen) - 1
-  var eBias = eMax >> 1
-  var nBits = -7
-  var i = isLE ? (nBytes - 1) : 0
-  var d = isLE ? -1 : 1
-  var s = buffer[offset + i]
-
-  i += d
-
-  e = s & ((1 << (-nBits)) - 1)
-  s >>= (-nBits)
-  nBits += eLen
-  for (; nBits > 0; e = e * 256 + buffer[offset + i], i += d, nBits -= 8) {}
-
-  m = e & ((1 << (-nBits)) - 1)
-  e >>= (-nBits)
-  nBits += mLen
-  for (; nBits > 0; m = m * 256 + buffer[offset + i], i += d, nBits -= 8) {}
-
-  if (e === 0) {
-    e = 1 - eBias
-  } else if (e === eMax) {
-    return m ? NaN : ((s ? -1 : 1) * Infinity)
-  } else {
-    m = m + Math.pow(2, mLen)
-    e = e - eBias
-  }
-  return (s ? -1 : 1) * m * Math.pow(2, e - mLen)
-}
-
-exports.write = function (buffer, value, offset, isLE, mLen, nBytes) {
-  var e, m, c
-  var eLen = nBytes * 8 - mLen - 1
-  var eMax = (1 << eLen) - 1
-  var eBias = eMax >> 1
-  var rt = (mLen === 23 ? Math.pow(2, -24) - Math.pow(2, -77) : 0)
-  var i = isLE ? 0 : (nBytes - 1)
-  var d = isLE ? 1 : -1
-  var s = value < 0 || (value === 0 && 1 / value < 0) ? 1 : 0
-
-  value = Math.abs(value)
-
-  if (isNaN(value) || value === Infinity) {
-    m = isNaN(value) ? 1 : 0
-    e = eMax
-  } else {
-    e = Math.floor(Math.log(value) / Math.LN2)
-    if (value * (c = Math.pow(2, -e)) < 1) {
-      e--
-      c *= 2
-    }
-    if (e + eBias >= 1) {
-      value += rt / c
-    } else {
-      value += rt * Math.pow(2, 1 - eBias)
-    }
-    if (value * c >= 2) {
-      e++
-      c /= 2
-    }
-
-    if (e + eBias >= eMax) {
-      m = 0
-      e = eMax
-    } else if (e + eBias >= 1) {
-      m = (value * c - 1) * Math.pow(2, mLen)
-      e = e + eBias
-    } else {
-      m = value * Math.pow(2, eBias - 1) * Math.pow(2, mLen)
-      e = 0
-    }
-  }
-
-  for (; mLen >= 8; buffer[offset + i] = m & 0xff, i += d, m /= 256, mLen -= 8) {}
-
-  e = (e << mLen) | m
-  eLen += mLen
-  for (; eLen > 0; buffer[offset + i] = e & 0xff, i += d, e /= 256, eLen -= 8) {}
-
-  buffer[offset + i - d] |= s * 128
-}
-
-},{}],16:[function(require,module,exports){
-var toString = {}.toString;
-
-module.exports = Array.isArray || function (arr) {
-  return toString.call(arr) == '[object Array]';
-};
-
-},{}],17:[function(require,module,exports){
+},{"../../lib/codemirror":13}],18:[function(require,module,exports){
 (function (global){
 /**
  * marked - a markdown parser
- * Copyright (c) 2011-2014, Christopher Jeffrey. (MIT Licensed)
+ * Copyright (c) 2011-2013, Christopher Jeffrey. (MIT Licensed)
  * https://github.com/chjj/marked
  */
 
@@ -12881,9 +13826,9 @@ var block = {
   heading: /^ *(#{1,6}) *([^\n]+?) *#* *(?:\n+|$)/,
   nptable: noop,
   lheading: /^([^\n]+)\n *(=|-){2,} *(?:\n+|$)/,
-  blockquote: /^( *>[^\n]+(\n(?!def)[^\n]+)*\n*)+/,
-  list: /^( *)(bull) [\s\S]+?(?:hr|def|\n{2,}(?! )(?!\1bull )\n*|\s*$)/,
-  html: /^ *(?:comment *(?:\n|\s*$)|closed *(?:\n{2,}|\s*$)|closing *(?:\n{2,}|\s*$))/,
+  blockquote: /^( *>[^\n]+(\n[^\n]+)*\n*)+/,
+  list: /^( *)(bull) [\s\S]+?(?:hr|\n{2,}(?! )(?!\1bull )\n*|\s*$)/,
+  html: /^ *(?:comment|closed|closing) *(?:\n{2,}|\s*$)/,
   def: /^ *\[([^\]]+)\]: *<?([^\s>]+)>?(?: +["(]([^\n]+)[")])? *(?:\n+|$)/,
   table: noop,
   paragraph: /^((?:[^\n]+\n?(?!hr|heading|lheading|blockquote|tag|def))+)\n*/,
@@ -12898,12 +13843,7 @@ block.item = replace(block.item, 'gm')
 
 block.list = replace(block.list)
   (/bull/g, block.bullet)
-  ('hr', '\\n+(?=\\1?(?:[-*_] *){3,}(?:\\n+|$))')
-  ('def', '\\n+(?=' + block.def.source + ')')
-  ();
-
-block.blockquote = replace(block.blockquote)
-  ('def', block.def)
+  ('hr', /\n+(?=(?: *[-*_]){3,} *(?:\n+|$))/)
   ();
 
 block._tag = '(?!(?:'
@@ -12938,9 +13878,8 @@ block.normal = merge({}, block);
  */
 
 block.gfm = merge({}, block.normal, {
-  fences: /^ *(`{3,}|~{3,})[ \.]*(\S+)? *\n([\s\S]*?)\s*\1 *(?:\n+|$)/,
-  paragraph: /^/,
-  heading: /^ *(#{1,6}) +([^\n]+?) *#* *(?:\n+|$)/
+  fences: /^ *(`{3,}|~{3,}) *(\S+)? *\n([\s\S]+?)\s*\1 *(?:\n+|$)/,
+  paragraph: /^/
 });
 
 block.gfm.paragraph = replace(block.paragraph)
@@ -13010,7 +13949,7 @@ Lexer.prototype.lex = function(src) {
  * Lexing
  */
 
-Lexer.prototype.token = function(src, top, bq) {
+Lexer.prototype.token = function(src, top) {
   var src = src.replace(/^ +$/gm, '')
     , next
     , loose
@@ -13052,7 +13991,7 @@ Lexer.prototype.token = function(src, top, bq) {
       this.tokens.push({
         type: 'code',
         lang: cap[2],
-        text: cap[3] || ''
+        text: cap[3]
       });
       continue;
     }
@@ -13133,7 +14072,7 @@ Lexer.prototype.token = function(src, top, bq) {
       // Pass `top` to keep the current
       // "toplevel" state. This is exactly
       // how markdown.pl works.
-      this.token(cap, top, true);
+      this.token(cap, top);
 
       this.tokens.push({
         type: 'blockquote_end'
@@ -13202,7 +14141,7 @@ Lexer.prototype.token = function(src, top, bq) {
         });
 
         // Recurse.
-        this.token(item, false, bq);
+        this.token(item, false);
 
         this.tokens.push({
           type: 'list_item_end'
@@ -13223,15 +14162,14 @@ Lexer.prototype.token = function(src, top, bq) {
         type: this.options.sanitize
           ? 'paragraph'
           : 'html',
-        pre: !this.options.sanitizer
-          && (cap[1] === 'pre' || cap[1] === 'script' || cap[1] === 'style'),
+        pre: cap[1] === 'pre' || cap[1] === 'script' || cap[1] === 'style',
         text: cap[0]
       });
       continue;
     }
 
     // def
-    if ((!bq && top) && (cap = this.rules.def.exec(src))) {
+    if (top && (cap = this.rules.def.exec(src))) {
       src = src.substring(cap[0].length);
       this.tokens.links[cap[1].toLowerCase()] = {
         href: cap[2],
@@ -13319,10 +14257,11 @@ var inline = {
   reflink: /^!?\[(inside)\]\s*\[([^\]]*)\]/,
   nolink: /^!?\[((?:\[[^\]]*\]|[^\[\]])*)\]/,
   strong: /^__([\s\S]+?)__(?!_)|^\*\*([\s\S]+?)\*\*(?!\*)/,
-  em: /^\b_((?:[^_]|__)+?)_\b|^\*((?:\*\*|[\s\S])+?)\*(?!\*)/,
+  em: /^\b_((?:__|[\s\S])+?)_\b|^\*((?:\*\*|[\s\S])+?)\*(?!\*)/,
   code: /^(`+)\s*([\s\S]*?[^`])\s*\1(?!`)/,
   br: /^ {2,}\n(?!\s*$)/,
   del: noop,
+  emoji: noop,
   text: /^[\s\S]+?(?=[\\<!\[_*`]| {2,}\n|$)/
 };
 
@@ -13361,8 +14300,9 @@ inline.gfm = merge({}, inline.normal, {
   escape: replace(inline.escape)('])', '~|])')(),
   url: /^(https?:\/\/[^\s<]+[^<.,:;"')\]\s])/,
   del: /^~~(?=\S)([\s\S]*?\S)~~/,
+  emoji: /^:([A-Za-z0-9_\-\+]+?):/,
   text: replace(inline.text)
-    (']|', '~]|')
+    (']|', ':~]|')
     ('|', '|https?://|')
     ()
 });
@@ -13401,6 +14341,8 @@ function InlineLexer(links, options) {
   } else if (this.options.pedantic) {
     this.rules = inline.pedantic;
   }
+
+  this.emojiTemplate = getEmojiTemplate(options);
 }
 
 /**
@@ -13454,7 +14396,7 @@ InlineLexer.prototype.output = function(src) {
     }
 
     // url (gfm)
-    if (!this.inLink && (cap = this.rules.url.exec(src))) {
+    if (cap = this.rules.url.exec(src)) {
       src = src.substring(cap[0].length);
       text = escape(cap[1]);
       href = text;
@@ -13464,29 +14406,20 @@ InlineLexer.prototype.output = function(src) {
 
     // tag
     if (cap = this.rules.tag.exec(src)) {
-      if (!this.inLink && /^<a /i.test(cap[0])) {
-        this.inLink = true;
-      } else if (this.inLink && /^<\/a>/i.test(cap[0])) {
-        this.inLink = false;
-      }
       src = src.substring(cap[0].length);
       out += this.options.sanitize
-        ? this.options.sanitizer
-          ? this.options.sanitizer(cap[0])
-          : escape(cap[0])
-        : cap[0]
+        ? escape(cap[0])
+        : cap[0];
       continue;
     }
 
     // link
     if (cap = this.rules.link.exec(src)) {
       src = src.substring(cap[0].length);
-      this.inLink = true;
       out += this.outputLink(cap, {
         href: cap[2],
         title: cap[3]
       });
-      this.inLink = false;
       continue;
     }
 
@@ -13501,9 +14434,7 @@ InlineLexer.prototype.output = function(src) {
         src = cap[0].substring(1) + src;
         continue;
       }
-      this.inLink = true;
       out += this.outputLink(cap, link);
-      this.inLink = false;
       continue;
     }
 
@@ -13542,10 +14473,17 @@ InlineLexer.prototype.output = function(src) {
       continue;
     }
 
+    // emoji (gfm)
+    if (cap = this.rules.emoji.exec(src)) {
+      src = src.substring(cap[0].length);
+      out += this.emoji(cap[1]);
+      continue;
+    }
+
     // text
     if (cap = this.rules.text.exec(src)) {
       src = src.substring(cap[0].length);
-      out += this.renderer.text(escape(this.smartypants(cap[0])));
+      out += escape(this.smartypants(cap[0]));
       continue;
     }
 
@@ -13572,6 +14510,47 @@ InlineLexer.prototype.outputLink = function(cap, link) {
 };
 
 /**
+ * Emoji Transformations
+ */
+
+function emojiDefaultTemplate(emoji) {
+  return '<img src="'
+    + '/graphics/emojis/'
+    + encodeURIComponent(emoji)
+    + '.png"'
+    + ' alt=":'
+    + escape(emoji)
+    + ':"'
+    + ' title=":'
+    + escape(emoji)
+    + ':"'
+    + ' class="emoji" align="absmiddle" height="20" width="20">';
+}
+
+function getEmojiTemplate(options) {
+  if (options.emoji) {
+    if (typeof options.emoji === 'function') {
+      return options.emoji;
+    }
+
+    if (typeof options.emoji === 'string') {
+      var emojiSplit = options.emoji.split(/\{emoji\}/g);
+      return function(emoji) {
+        return emojiSplit.join(emoji);
+      }
+    }
+  }
+  return emojiDefaultTemplate;
+}
+
+InlineLexer.prototype.emojiTemplate = emojiDefaultTemplate;
+InlineLexer.prototype.emoji = function (name) {
+  if (!this.options.emoji) return ':' + name + ':';
+
+  return this.emojiTemplate(name);
+};
+
+/**
  * Smartypants Transformations
  */
 
@@ -13579,9 +14558,7 @@ InlineLexer.prototype.smartypants = function(text) {
   if (!this.options.smartypants) return text;
   return text
     // em-dashes
-    .replace(/---/g, '\u2014')
-    // en-dashes
-    .replace(/--/g, '\u2013')
+    .replace(/--/g, '\u2014')
     // opening singles
     .replace(/(^|[-\u2014/(\[{"\s])'/g, '$1\u2018')
     // closing singles & apostrophes
@@ -13599,7 +14576,6 @@ InlineLexer.prototype.smartypants = function(text) {
  */
 
 InlineLexer.prototype.mangle = function(text) {
-  if (!this.options.mangle) return text;
   var out = ''
     , l = text.length
     , i = 0
@@ -13669,7 +14645,7 @@ Renderer.prototype.heading = function(text, level, raw) {
 };
 
 Renderer.prototype.hr = function() {
-  return this.options.xhtml ? '<hr/>\n' : '<hr>\n';
+  return '<hr>\n';
 };
 
 Renderer.prototype.list = function(body, ordered) {
@@ -13722,7 +14698,7 @@ Renderer.prototype.codespan = function(text) {
 };
 
 Renderer.prototype.br = function() {
-  return this.options.xhtml ? '<br/>' : '<br>';
+  return '<br>';
 };
 
 Renderer.prototype.del = function(text) {
@@ -13738,7 +14714,7 @@ Renderer.prototype.link = function(href, title, text) {
     } catch (e) {
       return '';
     }
-    if (prot.indexOf('javascript:') === 0 || prot.indexOf('vbscript:') === 0) {
+    if (prot.indexOf('javascript:') === 0) {
       return '';
     }
   }
@@ -13755,12 +14731,8 @@ Renderer.prototype.image = function(href, title, text) {
   if (title) {
     out += ' title="' + title + '"';
   }
-  out += this.options.xhtml ? '/>' : '>';
+  out += '>';
   return out;
-};
-
-Renderer.prototype.text = function(text) {
-  return text;
 };
 
 /**
@@ -14028,13 +15000,8 @@ function marked(src, opt, callback) {
 
     pending = tokens.length;
 
-    var done = function(err) {
-      if (err) {
-        opt.highlight = highlight;
-        return callback(err);
-      }
-
-      var out;
+    var done = function() {
+      var out, err;
 
       try {
         out = Parser.parse(tokens, opt);
@@ -14063,7 +15030,6 @@ function marked(src, opt, callback) {
           return --pending || done();
         }
         return highlight(token.text, token.lang, function(err, code) {
-          if (err) return done(err);
           if (code == null || code === token.text) {
             return --pending || done();
           }
@@ -14102,20 +15068,18 @@ marked.setOptions = function(opt) {
 
 marked.defaults = {
   gfm: true,
+  emoji: false,
   tables: true,
   breaks: false,
   pedantic: false,
   sanitize: false,
-  sanitizer: null,
-  mangle: true,
   smartLists: false,
   silent: false,
   highlight: null,
   langPrefix: 'lang-',
   smartypants: false,
   headerPrefix: '',
-  renderer: new Renderer,
-  xhtml: false
+  renderer: new Renderer
 };
 
 /**
@@ -14135,7 +15099,7 @@ marked.inlineLexer = InlineLexer.output;
 
 marked.parse = marked;
 
-if (typeof module !== 'undefined' && typeof exports === 'object') {
+if (typeof exports === 'object') {
   module.exports = marked;
 } else if (typeof define === 'function' && define.amd) {
   define(function() { return marked; });
@@ -14148,799 +15112,7 @@ if (typeof module !== 'undefined' && typeof exports === 'object') {
 }());
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{}],18:[function(require,module,exports){
-(function (Buffer,__dirname){
-'use strict';
-
-/**
- * Typo is a JavaScript implementation of a spellchecker using hunspell-style 
- * dictionaries.
- */
-
-/**
- * Typo constructor.
- *
- * @param {String} [dictionary] The locale code of the dictionary being used. e.g.,
- *                              "en_US". This is only used to auto-load dictionaries.
- * @param {String} [affData]    The data from the dictionary's .aff file. If omitted
- *                              and Typo.js is being used in a Chrome extension, the .aff
- *                              file will be loaded automatically from
- *                              lib/typo/dictionaries/[dictionary]/[dictionary].aff
- *                              In other environments, it will be loaded from
- *                              [settings.dictionaryPath]/dictionaries/[dictionary]/[dictionary].aff
- * @param {String} [wordsData]  The data from the dictionary's .dic file. If omitted
- *                              and Typo.js is being used in a Chrome extension, the .dic
- *                              file will be loaded automatically from
- *                              lib/typo/dictionaries/[dictionary]/[dictionary].dic
- *                              In other environments, it will be loaded from
- *                              [settings.dictionaryPath]/dictionaries/[dictionary]/[dictionary].dic
- * @param {Object} [settings]   Constructor settings. Available properties are:
- *                              {String} [dictionaryPath]: path to load dictionary from in non-chrome
- *                              environment.
- *                              {Object} [flags]: flag information.
- *
- *
- * @returns {Typo} A Typo object.
- */
-
-var Typo = function (dictionary, affData, wordsData, settings) {
-	settings = settings || {};
-	
-	this.dictionary = null;
-	
-	this.rules = {};
-	this.dictionaryTable = {};
-	
-	this.compoundRules = [];
-	this.compoundRuleCodes = {};
-	
-	this.replacementTable = [];
-	
-	this.flags = settings.flags || {}; 
-	
-	if (dictionary) {
-		this.dictionary = dictionary;
-		
-		if (typeof window !== 'undefined' && 'chrome' in window && 'extension' in window.chrome && 'getURL' in window.chrome.extension) {
-			if (!affData) affData = this._readFile(chrome.extension.getURL("lib/typo/dictionaries/" + dictionary + "/" + dictionary + ".aff"));
-			if (!wordsData) wordsData = this._readFile(chrome.extension.getURL("lib/typo/dictionaries/" + dictionary + "/" + dictionary + ".dic"));
-		} else {
-			if (settings.dictionaryPath) {
-				var path = settings.dictionaryPath;
-			}
-			else if (typeof __dirname !== 'undefined') {
-				var path = __dirname + '/dictionaries';
-			}
-			else {
-				var path = './dictionaries';
-			}
-			
-			if (!affData) affData = this._readFile(path + "/" + dictionary + "/" + dictionary + ".aff");
-			if (!wordsData) wordsData = this._readFile(path + "/" + dictionary + "/" + dictionary + ".dic");
-		}
-		
-		this.rules = this._parseAFF(affData);
-		
-		// Save the rule codes that are used in compound rules.
-		this.compoundRuleCodes = {};
-		
-		for (var i = 0, _len = this.compoundRules.length; i < _len; i++) {
-			var rule = this.compoundRules[i];
-			
-			for (var j = 0, _jlen = rule.length; j < _jlen; j++) {
-				this.compoundRuleCodes[rule[j]] = [];
-			}
-		}
-		
-		// If we add this ONLYINCOMPOUND flag to this.compoundRuleCodes, then _parseDIC
-		// will do the work of saving the list of words that are compound-only.
-		if ("ONLYINCOMPOUND" in this.flags) {
-			this.compoundRuleCodes[this.flags.ONLYINCOMPOUND] = [];
-		}
-		
-		this.dictionaryTable = this._parseDIC(wordsData);
-		
-		// Get rid of any codes from the compound rule codes that are never used 
-		// (or that were special regex characters).  Not especially necessary... 
-		for (var i in this.compoundRuleCodes) {
-			if (this.compoundRuleCodes[i].length == 0) {
-				delete this.compoundRuleCodes[i];
-			}
-		}
-		
-		// Build the full regular expressions for each compound rule.
-		// I have a feeling (but no confirmation yet) that this method of 
-		// testing for compound words is probably slow.
-		for (var i = 0, _len = this.compoundRules.length; i < _len; i++) {
-			var ruleText = this.compoundRules[i];
-			
-			var expressionText = "";
-			
-			for (var j = 0, _jlen = ruleText.length; j < _jlen; j++) {
-				var character = ruleText[j];
-				
-				if (character in this.compoundRuleCodes) {
-					expressionText += "(" + this.compoundRuleCodes[character].join("|") + ")";
-				}
-				else {
-					expressionText += character;
-				}
-			}
-			
-			this.compoundRules[i] = new RegExp(expressionText, "i");
-		}
-	}
-	
-	return this;
-};
-
-Typo.prototype = {
-	/**
-	 * Loads a Typo instance from a hash of all of the Typo properties.
-	 *
-	 * @param object obj A hash of Typo properties, probably gotten from a JSON.parse(JSON.stringify(typo_instance)).
-	 */
-	
-	load : function (obj) {
-		for (var i in obj) {
-			this[i] = obj[i];
-		}
-		
-		return this;
-	},
-	
-	/**
-	 * Read the contents of a file.
-	 * 
-	 * @param {String} path The path (relative) to the file.
-	 * @param {String} [charset="ISO8859-1"] The expected charset of the file
-	 * @returns string The file data.
-	 */
-	
-	_readFile : function (path, charset) {
-		if (!charset) charset = "utf8";
-		
-		if (typeof XMLHttpRequest !== 'undefined') {
-			var req = new XMLHttpRequest();
-			req.open("GET", path, false);
-		
-			if (req.overrideMimeType)
-				req.overrideMimeType("text/plain; charset=" + charset);
-		
-			req.send(null);
-			
-			return req.responseText;
-		}
-		else if (typeof require !== 'undefined') {
-			// Node.js
-			var fs = require("fs");
-			
-			try {
-				if (fs.existsSync(path)) {
-					var stats = fs.statSync(path);
-					
-					var fileDescriptor = fs.openSync(path, 'r');
-					
-					var buffer = new Buffer(stats.size);
-					
-					fs.readSync(fileDescriptor, buffer, 0, buffer.length, null);
-					
-					return buffer.toString(charset, 0, buffer.length);
-				}
-				else {
-					console.log("Path " + path + " does not exist.");
-				}
-			} catch (e) {
-				console.log(e);
-				return '';
-			}
-		}
-	},
-	
-	/**
-	 * Parse the rules out from a .aff file.
-	 *
-	 * @param {String} data The contents of the affix file.
-	 * @returns object The rules from the file.
-	 */
-	
-	_parseAFF : function (data) {
-		var rules = {};
-		
-		// Remove comment lines
-		data = this._removeAffixComments(data);
-		
-		var lines = data.split("\n");
-		
-		for (var i = 0, _len = lines.length; i < _len; i++) {
-			var line = lines[i];
-			
-			var definitionParts = line.split(/\s+/);
-			
-			var ruleType = definitionParts[0];
-			
-			if (ruleType == "PFX" || ruleType == "SFX") {
-				var ruleCode = definitionParts[1];
-				var combineable = definitionParts[2];
-				var numEntries = parseInt(definitionParts[3], 10);
-				
-				var entries = [];
-				
-				for (var j = i + 1, _jlen = i + 1 + numEntries; j < _jlen; j++) {
-					var line = lines[j];
-					
-					var lineParts = line.split(/\s+/);
-					var charactersToRemove = lineParts[2];
-					
-					var additionParts = lineParts[3].split("/");
-					
-					var charactersToAdd = additionParts[0];
-					if (charactersToAdd === "0") charactersToAdd = "";
-					
-					var continuationClasses = this.parseRuleCodes(additionParts[1]);
-					
-					var regexToMatch = lineParts[4];
-					
-					var entry = {};
-					entry.add = charactersToAdd;
-					
-					if (continuationClasses.length > 0) entry.continuationClasses = continuationClasses;
-					
-					if (regexToMatch !== ".") {
-						if (ruleType === "SFX") {
-							entry.match = new RegExp(regexToMatch + "$");
-						}
-						else {
-							entry.match = new RegExp("^" + regexToMatch);
-						}
-					}
-					
-					if (charactersToRemove != "0") {
-						if (ruleType === "SFX") {
-							entry.remove = new RegExp(charactersToRemove  + "$");
-						}
-						else {
-							entry.remove = charactersToRemove;
-						}
-					}
-					
-					entries.push(entry);
-				}
-				
-				rules[ruleCode] = { "type" : ruleType, "combineable" : (combineable == "Y"), "entries" : entries };
-				
-				i += numEntries;
-			}
-			else if (ruleType === "COMPOUNDRULE") {
-				var numEntries = parseInt(definitionParts[1], 10);
-				
-				for (var j = i + 1, _jlen = i + 1 + numEntries; j < _jlen; j++) {
-					var line = lines[j];
-					
-					var lineParts = line.split(/\s+/);
-					this.compoundRules.push(lineParts[1]);
-				}
-				
-				i += numEntries;
-			}
-			else if (ruleType === "REP") {
-				var lineParts = line.split(/\s+/);
-				
-				if (lineParts.length === 3) {
-					this.replacementTable.push([ lineParts[1], lineParts[2] ]);
-				}
-			}
-			else {
-				// ONLYINCOMPOUND
-				// COMPOUNDMIN
-				// FLAG
-				// KEEPCASE
-				// NEEDAFFIX
-				
-				this.flags[ruleType] = definitionParts[1];
-			}
-		}
-		
-		return rules;
-	},
-	
-	/**
-	 * Removes comment lines and then cleans up blank lines and trailing whitespace.
-	 *
-	 * @param {String} data The data from an affix file.
-	 * @return {String} The cleaned-up data.
-	 */
-	
-	_removeAffixComments : function (data) {
-		// Remove comments
-		data = data.replace(/#.*$/mg, "");
-		
-		// Trim each line
-		data = data.replace(/^\s\s*/m, '').replace(/\s\s*$/m, '');
-		
-		// Remove blank lines.
-		data = data.replace(/\n{2,}/g, "\n");
-		
-		// Trim the entire string
-		data = data.replace(/^\s\s*/, '').replace(/\s\s*$/, '');
-		
-		return data;
-	},
-	
-	/**
-	 * Parses the words out from the .dic file.
-	 *
-	 * @param {String} data The data from the dictionary file.
-	 * @returns object The lookup table containing all of the words and
-	 *                 word forms from the dictionary.
-	 */
-	
-	_parseDIC : function (data) {
-		data = this._removeDicComments(data);
-		
-		var lines = data.split("\n");
-		var dictionaryTable = {};
-		
-		function addWord(word, rules) {
-			// Some dictionaries will list the same word multiple times with different rule sets.
-			if (!(word in dictionaryTable) || typeof dictionaryTable[word] != 'object') {
-				dictionaryTable[word] = [];
-			}
-			
-			dictionaryTable[word].push(rules);
-		}
-		
-		// The first line is the number of words in the dictionary.
-		for (var i = 1, _len = lines.length; i < _len; i++) {
-			var line = lines[i];
-			
-			var parts = line.split("/", 2);
-			
-			var word = parts[0];
-
-			// Now for each affix rule, generate that form of the word.
-			if (parts.length > 1) {
-				var ruleCodesArray = this.parseRuleCodes(parts[1]);
-				
-				// Save the ruleCodes for compound word situations.
-				if (!("NEEDAFFIX" in this.flags) || ruleCodesArray.indexOf(this.flags.NEEDAFFIX) == -1) {
-					addWord(word, ruleCodesArray);
-				}
-				
-				for (var j = 0, _jlen = ruleCodesArray.length; j < _jlen; j++) {
-					var code = ruleCodesArray[j];
-					
-					var rule = this.rules[code];
-					
-					if (rule) {
-						var newWords = this._applyRule(word, rule);
-						
-						for (var ii = 0, _iilen = newWords.length; ii < _iilen; ii++) {
-							var newWord = newWords[ii];
-							
-							addWord(newWord, []);
-							
-							if (rule.combineable) {
-								for (var k = j + 1; k < _jlen; k++) {
-									var combineCode = ruleCodesArray[k];
-									
-									var combineRule = this.rules[combineCode];
-									
-									if (combineRule) {
-										if (combineRule.combineable && (rule.type != combineRule.type)) {
-											var otherNewWords = this._applyRule(newWord, combineRule);
-											
-											for (var iii = 0, _iiilen = otherNewWords.length; iii < _iiilen; iii++) {
-												var otherNewWord = otherNewWords[iii];
-												addWord(otherNewWord, []);
-											}
-										}
-									}
-								}
-							}
-						}
-					}
-					
-					if (code in this.compoundRuleCodes) {
-						this.compoundRuleCodes[code].push(word);
-					}
-				}
-			}
-			else {
-				addWord(word.trim(), []);
-			}
-		}
-		
-		return dictionaryTable;
-	},
-	
-	
-	/**
-	 * Removes comment lines and then cleans up blank lines and trailing whitespace.
-	 *
-	 * @param {String} data The data from a .dic file.
-	 * @return {String} The cleaned-up data.
-	 */
-	
-	_removeDicComments : function (data) {
-		// I can't find any official documentation on it, but at least the de_DE
-		// dictionary uses tab-indented lines as comments.
-		
-		// Remove comments
-		data = data.replace(/^\t.*$/mg, "");
-		
-		return data;
-	},
-	
-	parseRuleCodes : function (textCodes) {
-		if (!textCodes) {
-			return [];
-		}
-		else if (!("FLAG" in this.flags)) {
-			return textCodes.split("");
-		}
-		else if (this.flags.FLAG === "long") {
-			var flags = [];
-			
-			for (var i = 0, _len = textCodes.length; i < _len; i += 2) {
-				flags.push(textCodes.substr(i, 2));
-			}
-			
-			return flags;
-		}
-		else if (this.flags.FLAG === "num") {
-			return textCode.split(",");
-		}
-	},
-	
-	/**
-	 * Applies an affix rule to a word.
-	 *
-	 * @param {String} word The base word.
-	 * @param {Object} rule The affix rule.
-	 * @returns {String[]} The new words generated by the rule.
-	 */
-	
-	_applyRule : function (word, rule) {
-		var entries = rule.entries;
-		var newWords = [];
-		
-		for (var i = 0, _len = entries.length; i < _len; i++) {
-			var entry = entries[i];
-			
-			if (!entry.match || word.match(entry.match)) {
-				var newWord = word;
-				
-				if (entry.remove) {
-					newWord = newWord.replace(entry.remove, "");
-				}
-				
-				if (rule.type === "SFX") {
-					newWord = newWord + entry.add;
-				}
-				else {
-					newWord = entry.add + newWord;
-				}
-				
-				newWords.push(newWord);
-				
-				if ("continuationClasses" in entry) {
-					for (var j = 0, _jlen = entry.continuationClasses.length; j < _jlen; j++) {
-						var continuationRule = this.rules[entry.continuationClasses[j]];
-						
-						if (continuationRule) {
-							newWords = newWords.concat(this._applyRule(newWord, continuationRule));
-						}
-						/*
-						else {
-							// This shouldn't happen, but it does, at least in the de_DE dictionary.
-							// I think the author mistakenly supplied lower-case rule codes instead 
-							// of upper-case.
-						}
-						*/
-					}
-				}
-			}
-		}
-		
-		return newWords;
-	},
-	
-	/**
-	 * Checks whether a word or a capitalization variant exists in the current dictionary.
-	 * The word is trimmed and several variations of capitalizations are checked.
-	 * If you want to check a word without any changes made to it, call checkExact()
-	 *
-	 * @see http://blog.stevenlevithan.com/archives/faster-trim-javascript re:trimming function
-	 *
-	 * @param {String} aWord The word to check.
-	 * @returns {Boolean}
-	 */
-	
-	check : function (aWord) {
-		// Remove leading and trailing whitespace
-		var trimmedWord = aWord.replace(/^\s\s*/, '').replace(/\s\s*$/, '');
-		
-		if (this.checkExact(trimmedWord)) {
-			return true;
-		}
-		
-		// The exact word is not in the dictionary.
-		if (trimmedWord.toUpperCase() === trimmedWord) {
-			// The word was supplied in all uppercase.
-			// Check for a capitalized form of the word.
-			var capitalizedWord = trimmedWord[0] + trimmedWord.substring(1).toLowerCase();
-			
-			if (this.hasFlag(capitalizedWord, "KEEPCASE")) {
-				// Capitalization variants are not allowed for this word.
-				return false;
-			}
-			
-			if (this.checkExact(capitalizedWord)) {
-				return true;
-			}
-		}
-		
-		var lowercaseWord = trimmedWord.toLowerCase();
-		
-		if (lowercaseWord !== trimmedWord) {
-			if (this.hasFlag(lowercaseWord, "KEEPCASE")) {
-				// Capitalization variants are not allowed for this word.
-				return false;
-			}
-			
-			// Check for a lowercase form
-			if (this.checkExact(lowercaseWord)) {
-				return true;
-			}
-		}
-		
-		return false;
-	},
-	
-	/**
-	 * Checks whether a word exists in the current dictionary.
-	 *
-	 * @param {String} word The word to check.
-	 * @returns {Boolean}
-	 */
-	
-	checkExact : function (word) {
-		var ruleCodes = this.dictionaryTable[word];
-		
-		if (typeof ruleCodes === 'undefined') {
-			// Check if this might be a compound word.
-			if ("COMPOUNDMIN" in this.flags && word.length >= this.flags.COMPOUNDMIN) {
-				for (var i = 0, _len = this.compoundRules.length; i < _len; i++) {
-					if (word.match(this.compoundRules[i])) {
-						return true;
-					}
-				}
-			}
-			
-			return false;
-		}
-		else if (typeof ruleCodes === 'object') { // this.dictionary['hasOwnProperty'] will be a function.
-			for (var i = 0, _len = ruleCodes.length; i < _len; i++) {
-				if (!this.hasFlag(word, "ONLYINCOMPOUND", ruleCodes[i])) {
-					return true;
-				}
-			}
-			
-			return false;
-		}
-	},
-	
-	/**
-	 * Looks up whether a given word is flagged with a given flag.
-	 *
-	 * @param {String} word The word in question.
-	 * @param {String} flag The flag in question.
-	 * @return {Boolean}
-	 */
-	 
-	hasFlag : function (word, flag, wordFlags) {
-		if (flag in this.flags) {
-			if (typeof wordFlags === 'undefined') {
-				var wordFlags = Array.prototype.concat.apply([], this.dictionaryTable[word]);
-			}
-			
-			if (wordFlags && wordFlags.indexOf(this.flags[flag]) !== -1) {
-				return true;
-			}
-		}
-		
-		return false;
-	},
-	
-	/**
-	 * Returns a list of suggestions for a misspelled word.
-	 *
-	 * @see http://www.norvig.com/spell-correct.html for the basis of this suggestor.
-	 * This suggestor is primitive, but it works.
-	 *
-	 * @param {String} word The misspelling.
-	 * @param {Number} [limit=5] The maximum number of suggestions to return.
-	 * @returns {String[]} The array of suggestions.
-	 */
-	
-	alphabet : "",
-	
-	suggest : function (word, limit) {
-		if (!limit) limit = 5;
-		
-		if (this.check(word)) return [];
-		
-		// Check the replacement table.
-		for (var i = 0, _len = this.replacementTable.length; i < _len; i++) {
-			var replacementEntry = this.replacementTable[i];
-			
-			if (word.indexOf(replacementEntry[0]) !== -1) {
-				var correctedWord = word.replace(replacementEntry[0], replacementEntry[1]);
-				
-				if (this.check(correctedWord)) {
-					return [ correctedWord ];
-				}
-			}
-		}
-		
-		var self = this;
-		self.alphabet = "abcdefghijklmnopqrstuvwxyz";
-		
-		/*
-		if (!self.alphabet) {
-			// Use the alphabet as implicitly defined by the words in the dictionary.
-			var alphaHash = {};
-			
-			for (var i in self.dictionaryTable) {
-				for (var j = 0, _len = i.length; j < _len; j++) {
-					alphaHash[i[j]] = true;
-				}
-			}
-			
-			for (var i in alphaHash) {
-				self.alphabet += i;
-			}
-			
-			var alphaArray = self.alphabet.split("");
-			alphaArray.sort();
-			self.alphabet = alphaArray.join("");
-		}
-		*/
-		
-		function edits1(words) {
-			var rv = [];
-			
-			for (var ii = 0, _iilen = words.length; ii < _iilen; ii++) {
-				var word = words[ii];
-				
-				var splits = [];
-			
-				for (var i = 0, _len = word.length + 1; i < _len; i++) {
-					splits.push([ word.substring(0, i), word.substring(i, word.length) ]);
-				}
-			
-				var deletes = [];
-			
-				for (var i = 0, _len = splits.length; i < _len; i++) {
-					var s = splits[i];
-				
-					if (s[1]) {
-						deletes.push(s[0] + s[1].substring(1));
-					}
-				}
-			
-				var transposes = [];
-			
-				for (var i = 0, _len = splits.length; i < _len; i++) {
-					var s = splits[i];
-				
-					if (s[1].length > 1) {
-						transposes.push(s[0] + s[1][1] + s[1][0] + s[1].substring(2));
-					}
-				}
-			
-				var replaces = [];
-			
-				for (var i = 0, _len = splits.length; i < _len; i++) {
-					var s = splits[i];
-				
-					if (s[1]) {
-						for (var j = 0, _jlen = self.alphabet.length; j < _jlen; j++) {
-							replaces.push(s[0] + self.alphabet[j] + s[1].substring(1));
-						}
-					}
-				}
-			
-				var inserts = [];
-			
-				for (var i = 0, _len = splits.length; i < _len; i++) {
-					var s = splits[i];
-				
-					if (s[1]) {
-						for (var j = 0, _jlen = self.alphabet.length; j < _jlen; j++) {
-							replaces.push(s[0] + self.alphabet[j] + s[1]);
-						}
-					}
-				}
-			
-				rv = rv.concat(deletes);
-				rv = rv.concat(transposes);
-				rv = rv.concat(replaces);
-				rv = rv.concat(inserts);
-			}
-			
-			return rv;
-		}
-		
-		function known(words) {
-			var rv = [];
-			
-			for (var i = 0; i < words.length; i++) {
-				if (self.check(words[i])) {
-					rv.push(words[i]);
-				}
-			}
-			
-			return rv;
-		}
-		
-		function correct(word) {
-			// Get the edit-distance-1 and edit-distance-2 forms of this word.
-			var ed1 = edits1([word]);
-			var ed2 = edits1(ed1);
-			
-			var corrections = known(ed1).concat(known(ed2));
-			
-			// Sort the edits based on how many different ways they were created.
-			var weighted_corrections = {};
-			
-			for (var i = 0, _len = corrections.length; i < _len; i++) {
-				if (!(corrections[i] in weighted_corrections)) {
-					weighted_corrections[corrections[i]] = 1;
-				}
-				else {
-					weighted_corrections[corrections[i]] += 1;
-				}
-			}
-			
-			var sorted_corrections = [];
-			
-			for (var i in weighted_corrections) {
-				sorted_corrections.push([ i, weighted_corrections[i] ]);
-			}
-			
-			function sorter(a, b) {
-				if (a[1] < b[1]) {
-					return -1;
-				}
-				
-				return 1;
-			}
-			
-			sorted_corrections.sort(sorter).reverse();
-			
-			var rv = [];
-			
-			for (var i = 0, _len = Math.min(limit, sorted_corrections.length); i < _len; i++) {
-				if (!self.hasFlag(sorted_corrections[i][0], "NOSUGGEST")) {
-					rv.push(sorted_corrections[i][0]);
-				}
-			}
-			
-			return rv;
-		}
-		
-		return correct(word);
-	}
-};
-
-// Support for use as a node.js module.
-if (typeof module !== 'undefined') {
-	module.exports = Typo;
-}
-}).call(this,require("buffer").Buffer,"/node_modules/typo-js")
-},{"buffer":3,"fs":2}],19:[function(require,module,exports){
+},{}],19:[function(require,module,exports){
 // CodeMirror, copyright (c) by Marijn Haverbeke and others
 // Distributed under an MIT license: http://codemirror.net/LICENSE
 
@@ -14986,7 +15158,7 @@ CodeMirror.commands.shiftTabAndUnindentMarkdownList = function (cm) {
 	}
 };
 
-},{"codemirror":10}],20:[function(require,module,exports){
+},{"codemirror":13}],20:[function(require,module,exports){
 /*global require,module*/
 "use strict";
 var CodeMirror = require("codemirror");
@@ -17015,5 +17187,5 @@ SimpleMDE.prototype.toTextArea = function() {
 };
 
 module.exports = SimpleMDE;
-},{"./codemirror/tablist":19,"codemirror":10,"codemirror-spell-checker":4,"codemirror/addon/display/fullscreen.js":5,"codemirror/addon/display/placeholder.js":6,"codemirror/addon/edit/continuelist.js":7,"codemirror/addon/mode/overlay.js":8,"codemirror/addon/selection/mark-selection.js":9,"codemirror/mode/gfm/gfm.js":11,"codemirror/mode/markdown/markdown.js":12,"codemirror/mode/xml/xml.js":14,"marked":17}]},{},[20])(20)
+},{"./codemirror/tablist":19,"codemirror":13,"codemirror-spell-checker":7,"codemirror/addon/display/fullscreen.js":8,"codemirror/addon/display/placeholder.js":9,"codemirror/addon/edit/continuelist.js":10,"codemirror/addon/mode/overlay.js":11,"codemirror/addon/selection/mark-selection.js":12,"codemirror/mode/gfm/gfm.js":14,"codemirror/mode/markdown/markdown.js":15,"codemirror/mode/xml/xml.js":17,"marked":18}]},{},[20])(20)
 });

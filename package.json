@@ -23,7 +23,7 @@
   "dependencies": {
     "codemirror": "*",
     "codemirror-spell-checker": "*",
-    "marked": "*"
+    "marked": "git://github.com/Bartvds/marked.git#640f829404b7173bf1f78072257c1509e9e5dec8"
   },
   "devDependencies": {
     "browserify": "*",
